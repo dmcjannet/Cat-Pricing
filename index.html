@@ -141,6 +141,7 @@
     padding: 1px 6px; border-radius: 10px; margin-left: 5px; vertical-align: middle;
   }
   .badge.floor { background: color-mix(in srgb, var(--warning) 25%, transparent); color: var(--text-primary); }
+  .badge.custom { background: color-mix(in srgb, var(--series-1) 22%, transparent); color: var(--text-primary); }
 
   .warn-banner {
     display: flex; gap: 8px; align-items: flex-start;
@@ -261,6 +262,7 @@
             <th>Reinst. #</th>
             <th>Reinst. rate (%)</th>
             <th>&lambda; override</th>
+            <th>Risk load ($M) override</th>
             <th>Expense % override</th>
             <th>Floor % override</th>
             <th class="col-actions"></th>
@@ -320,7 +322,7 @@
       <h3>Layer technical pricing</h3>
       <ul>
         <li><code>CoV = &sigma; / EL</code> &mdash; coefficient of variation of layer loss</li>
-        <li><code>Risk Load = &lambda; &times; &sigma;</code> &mdash; standard-deviation risk loading, the classic actuarial risk-adjusted premium principle</li>
+        <li><code>Risk Load = &lambda; &times; &sigma;</code> &mdash; standard-deviation risk loading, the classic actuarial risk-adjusted premium principle. Enter a value directly in the "Risk load ($M) override" column to bypass this formula for a layer (e.g. to use a number from another model or a negotiated load) &mdash; a "custom" badge marks any layer using an override.</li>
         <li><code>Technical Premium = EL + Risk Load</code></li>
         <li><code>Gross Premium = Technical Premium / (1 &minus; Expense Ratio)</code>, then floored at <code>ROL Floor &times; Limit</code> if higher</li>
         <li><code>ROL = Gross Premium / Limit</code></li>
@@ -356,7 +358,7 @@
       attachment: 0, limit: 0, el: 0, stdev: 0,
       probAttach: null, probExhaust: null,
       reinstNum: 0, reinstRate: 100,
-      lambdaOverride: null, expenseOverride: null, floorOverride: null
+      lambdaOverride: null, riskLoadOverride: null, expenseOverride: null, floorOverride: null
     }, overrides);
   }
 
@@ -428,7 +430,8 @@
     const stdev = Number(layer.stdev) || 0;
 
     const cov = el > 0 ? stdev / el : null;
-    const riskLoad = lambda * stdev;
+    const hasRiskLoadOverride = layer.riskLoadOverride !== null && layer.riskLoadOverride !== undefined && layer.riskLoadOverride !== "";
+    const riskLoad = hasRiskLoadOverride ? Number(layer.riskLoadOverride) : lambda * stdev;
     const technicalPremium = el + riskLoad;
     const expenseDenom = 1 - expenseRatio;
     const grossTech = expenseDenom > 0.001 ? technicalPremium / expenseDenom : technicalPremium;
@@ -449,7 +452,7 @@
 
     return {
       id: layer.id, label: layer.label, attachment, limit, exhaustion, el, stdev, cov,
-      lambda, expenseRatio, rolFloor,
+      lambda, expenseRatio, rolFloor, hasRiskLoadOverride,
       riskLoad, technicalPremium, expenseAmount, grossPremium, floorBinding,
       rol, multiple, payback, expectedReinstPremium, totalExpectedPremium
     };
@@ -560,6 +563,7 @@
       addCell(layer.reinstNum, v => { layer.reinstNum = Number(v); recalcAndRender(); }, { step: "1" });
       addCell(layer.reinstRate, v => { layer.reinstRate = Number(v); recalcAndRender(); }, { step: "5" });
       addCell(layer.lambdaOverride, v => { layer.lambdaOverride = v; recalcAndRender(); }, { step: "0.01", allowEmpty: true, placeholder: "default" });
+      addCell(layer.riskLoadOverride, v => { layer.riskLoadOverride = v; recalcAndRender(); }, { step: "0.01", allowEmpty: true, placeholder: "λ×σ" });
       addCell(layer.expenseOverride, v => { layer.expenseOverride = v; recalcAndRender(); }, { step: "0.5", allowEmpty: true, placeholder: "default" });
       addCell(layer.floorOverride, v => { layer.floorOverride = v; recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "default" });
 
@@ -610,7 +614,7 @@
         <td style="text-align:left;">${escapeHtml(l.label)}${l.floorBinding ? '<span class="badge floor" title="Minimum ROL floor is binding for this layer">floor</span>' : ""}</td>
         <td>${fmtMoneyM(l.attachment)} &ndash; ${fmtMoneyM(l.exhaustion)}</td>
         <td>${l.cov === null ? "—" : fmtNum(l.cov, 2)}</td>
-        <td>${fmtMoneyM(l.riskLoad)}</td>
+        <td>${fmtMoneyM(l.riskLoad)}${l.hasRiskLoadOverride ? '<span class="badge custom" title="Manually entered risk load, overrides λ×σ">custom</span>' : ""}</td>
         <td>${fmtMoneyM(l.technicalPremium)}</td>
         <td>${fmtMoneyM(l.grossPremium)}</td>
         <td>${fmtPct(l.rol)}</td>

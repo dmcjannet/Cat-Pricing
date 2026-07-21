@@ -29,6 +29,7 @@ Payback (years)   = Limit / Gross Premium
 ```
 
 - **λ (lambda)** is your market price of risk — the risk aversion parameter multiplying the layer's loss standard deviation. Higher λ produces more conservative (higher) technical pricing. It can be set globally and overridden per layer (e.g. to reflect different views on a specific peril or territory).
+- **Risk load override** lets you type a risk load ($M) directly for a layer, bypassing the `λ × σ` formula entirely — useful when you have a risk load from another model, a broker indication, or a negotiated number. Layers using this show a "custom" badge in the results table.
 - **Expense ratio** grosses up the technical premium for brokerage, ceding commission, and internal expense load.
 - **ROL floor** applies a minimum market rate-on-line regardless of technical price — common for remote/high layers where technical pricing alone would fall below what the market will actually clear at. A "floor" badge appears on any layer where the floor is binding.
 
