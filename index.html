@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cat XL Tower Pricer</title>
+<title>Cat XL Tower Pricer — RA Flat Renewal Pricing</title>
 <style>
   :root {
     color-scheme: light;
@@ -16,11 +16,9 @@
     --baseline:       #c3c2b7;
     --border:         rgba(11,11,11,0.10);
     --border-strong:  rgba(11,11,11,0.16);
-    --series-1:       #2a78d6; /* blue    - Expected Loss */
-    --series-2:       #eb6834; /* orange  - Risk Load */
-    --series-3:       #1baf7a; /* aqua    - Expense Load */
-    --good:           #0ca30c;
-    --warning:        #fab219;
+    --series-1:       #2a78d6; /* blue    - Expiring */
+    --series-2:       #eb6834; /* orange  - New RA Flat */
+    --good:           #006300;
     --critical:       #d03b3b;
     --input-bg:       #ffffff;
   }
@@ -38,9 +36,7 @@
       --border-strong:  rgba(255,255,255,0.18);
       --series-1:       #3987e5;
       --series-2:       #d95926;
-      --series-3:       #199e70;
       --good:           #0ca30c;
-      --warning:        #fab219;
       --critical:       #e66767;
       --input-bg:       #232322;
     }
@@ -58,9 +54,7 @@
     --border-strong:  rgba(255,255,255,0.18);
     --series-1:       #3987e5;
     --series-2:       #d95926;
-    --series-3:       #199e70;
     --good:           #0ca30c;
-    --warning:        #fab219;
     --critical:       #e66767;
     --input-bg:       #232322;
   }
@@ -72,7 +66,7 @@
     color: var(--text-primary);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  body { padding: 24px; max-width: 1180px; margin: 0 auto; }
+  body { padding: 24px; max-width: 1100px; margin: 0 auto; }
 
   h1 { font-size: 22px; font-weight: 650; margin: 0 0 2px; }
   h2 { font-size: 14px; font-weight: 650; margin: 0 0 12px; letter-spacing: .01em; }
@@ -104,20 +98,19 @@
   input[type="file"] { display: none; }
 
   label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
-  input[type="text"], input[type="number"] {
+  input[type="text"] {
     font-family: inherit; font-size: 13px;
     background: var(--input-bg); color: var(--text-primary);
     border: 1px solid var(--border-strong); border-radius: 6px;
-    padding: 6px 8px; width: 100%;
+    padding: 6px 8px; width: 100%; max-width: 320px;
   }
-  input[type="number"] { font-variant-numeric: tabular-nums; }
+  input[type="number"] {
+    font-family: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums;
+    background: var(--input-bg); color: var(--text-primary);
+    border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 5px 6px; width: 100%; text-align: right;
+  }
   input:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
-
-  .assumptions-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 14px 16px; align-items: end;
-  }
-  .assumptions-grid .field small { display:block; color: var(--text-muted); font-size: 10.5px; margin-top: 3px; }
 
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th, td { padding: 7px 8px; text-align: right; white-space: nowrap; }
@@ -130,23 +123,19 @@
   tbody td { border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover { background: color-mix(in srgb, var(--series-1) 6%, transparent); }
-  td input { text-align: right; padding: 5px 6px; font-size: 12.5px; }
   td.layer-name { min-width: 108px; }
   td.layer-name input { text-align: left; font-weight: 550; min-width: 100px; }
   .editor-wrap, .results-wrap { overflow-x: auto; }
   .col-actions { width: 34px; }
 
-  .badge {
-    display: inline-block; font-size: 10px; font-weight: 600;
-    padding: 1px 6px; border-radius: 10px; margin-left: 5px; vertical-align: middle;
-  }
-  .badge.floor { background: color-mix(in srgb, var(--warning) 25%, transparent); color: var(--text-primary); }
-  .badge.custom { background: color-mix(in srgb, var(--series-1) 22%, transparent); color: var(--text-primary); }
+  .rate-up { color: var(--critical); font-weight: 600; }
+  .rate-down { color: var(--good); font-weight: 600; }
+  .rate-flat { color: var(--text-muted); }
 
   .warn-banner {
     display: flex; gap: 8px; align-items: flex-start;
-    background: color-mix(in srgb, var(--warning) 14%, var(--surface-1));
-    border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+    background: color-mix(in srgb, #fab219 14%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, #fab219 45%, var(--border));
     border-radius: 10px; padding: 10px 14px; font-size: 12.5px;
     color: var(--text-primary); margin-bottom: 14px;
   }
@@ -160,8 +149,6 @@
   .kpi .value { font-size: 22px; font-weight: 650; }
   .kpi .sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
-  .charts-row { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
-  @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
   .chart-scroll { overflow-x: auto; }
   svg text { fill: var(--text-secondary); font-size: 10.5px; font-family: inherit; }
   svg .muted { fill: var(--text-muted); }
@@ -183,15 +170,12 @@
   #tooltip .t-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); }
   #tooltip .t-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
-  details.methodology summary {
-    cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 0;
-  }
+  details.methodology summary { cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 0; }
   details.methodology { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
   details.methodology code {
     background: color-mix(in srgb, var(--text-muted) 14%, transparent);
     padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: var(--text-primary);
   }
-  details.methodology h3 { font-size: 12.5px; color: var(--text-primary); margin: 14px 0 4px; }
   details.methodology ul { margin: 4px 0; padding-left: 18px; }
 
   footer { text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 28px; }
@@ -207,7 +191,7 @@
   <div class="topbar">
     <div>
       <h1>Cat XL Tower Pricer</h1>
-      <p class="subtitle">Risk-adjusted layer pricing for catastrophe excess-of-loss towers &mdash; expected loss + volatility loading. All monetary layer inputs are in $ millions.</p>
+      <p class="subtitle">Risk-adjusted flat (RA Flat) renewal pricing &mdash; hold last year's margin on standard deviation and reprice to this year's expected loss and volatility. Layer $ inputs are in $ millions.</p>
     </div>
     <div class="toolbar">
       <button id="btn-example" class="small">Load example tower</button>
@@ -222,28 +206,8 @@
   <div id="warn-area"></div>
 
   <div class="card">
-    <h2>Program</h2>
-    <div class="assumptions-grid">
-      <div class="field">
-        <label for="tower-name">Tower / program name</label>
-        <input type="text" id="tower-name" />
-      </div>
-      <div class="field">
-        <label for="a-lambda">Default risk load &lambda; <span title="Market price of risk">(&times; layer std. dev.)</span></label>
-        <input type="number" id="a-lambda" step="0.01" min="0" />
-        <small>Risk load = &lambda; &times; &sigma;. Calibrate to your market view (typical 0.10&ndash;0.40).</small>
-      </div>
-      <div class="field">
-        <label for="a-expense">Default expense ratio (%)</label>
-        <input type="number" id="a-expense" step="0.5" min="0" max="95" />
-        <small>Brokerage + ceding commission + internal load, grossed up.</small>
-      </div>
-      <div class="field">
-        <label for="a-floor">Default minimum ROL floor (%)</label>
-        <input type="number" id="a-floor" step="0.1" min="0" />
-        <small>Market floor rate regardless of technical price. 0 = disabled.</small>
-      </div>
-    </div>
+    <label for="tower-name">Tower / program name</label>
+    <input type="text" id="tower-name" />
   </div>
 
   <div class="card">
@@ -255,16 +219,10 @@
             <th style="text-align:left;">Layer</th>
             <th>Attach ($M)</th>
             <th>Limit ($M)</th>
-            <th>Exp. loss ($M)</th>
-            <th>Std dev ($M)</th>
-            <th>Prob. attach (%)</th>
-            <th>Prob. exhaust (%)</th>
-            <th>Reinst. #</th>
-            <th>Reinst. rate (%)</th>
-            <th>&lambda; override</th>
-            <th>Risk load ($M) override</th>
-            <th>Expense % override</th>
-            <th>Floor % override</th>
+            <th>Expiring ROL (%)</th>
+            <th>Expiring MSD</th>
+            <th>New expected loss ($M)</th>
+            <th>New volatility ($M)</th>
             <th class="col-actions"></th>
           </tr>
         </thead>
@@ -280,22 +238,18 @@
   <div class="kpi-row" id="kpi-row"></div>
 
   <div class="card">
-    <h2>Layer pricing results</h2>
+    <h2>RA Flat renewal pricing</h2>
     <div class="results-wrap">
       <table id="results-table">
         <thead>
           <tr>
             <th style="text-align:left;">Layer</th>
             <th>Attach&ndash;Exhaust</th>
-            <th>CoV</th>
-            <th>Risk load</th>
-            <th>Technical prem.</th>
-            <th>Gross premium</th>
-            <th>ROL</th>
-            <th>Multiple of EL</th>
-            <th>Payback (yrs)</th>
-            <th>Exp. reinst. prem.</th>
-            <th>Total exp. premium</th>
+            <th>Expiring ROL</th>
+            <th>Expiring premium</th>
+            <th>New RA Flat premium</th>
+            <th>New RA Flat ROL</th>
+            <th>Rate change</th>
           </tr>
         </thead>
         <tbody id="results-tbody"></tbody>
@@ -304,37 +258,22 @@
     </div>
   </div>
 
-  <div class="charts-row">
-    <div class="card">
-      <h2>Tower structure &mdash; colored by rate on line</h2>
-      <div class="chart-scroll" id="chart-tower"></div>
-    </div>
-    <div class="card">
-      <h2>Premium composition by layer</h2>
-      <div class="chart-scroll" id="chart-composition"></div>
-      <div class="legend" id="composition-legend"></div>
-    </div>
+  <div class="card">
+    <h2>Rate on line &mdash; expiring vs. new RA Flat</h2>
+    <div class="chart-scroll" id="chart-rol"></div>
+    <div class="legend" id="rol-legend"></div>
   </div>
 
   <div class="card">
     <details class="methodology">
       <summary>Methodology &amp; formulas</summary>
-      <h3>Layer technical pricing</h3>
       <ul>
-        <li><code>CoV = &sigma; / EL</code> &mdash; coefficient of variation of layer loss</li>
-        <li><code>Risk Load = &lambda; &times; &sigma;</code> &mdash; standard-deviation risk loading, the classic actuarial risk-adjusted premium principle. Enter a value directly in the "Risk load ($M) override" column to bypass this formula for a layer (e.g. to use a number from another model or a negotiated load) &mdash; a "custom" badge marks any layer using an override.</li>
-        <li><code>Technical Premium = EL + Risk Load</code></li>
-        <li><code>Gross Premium = Technical Premium / (1 &minus; Expense Ratio)</code>, then floored at <code>ROL Floor &times; Limit</code> if higher</li>
-        <li><code>ROL = Gross Premium / Limit</code></li>
-        <li><code>Multiple of EL = Gross Premium / EL</code> &mdash; the market "rate-to-EL" multiple</li>
-        <li><code>Payback (years) = Limit / Gross Premium</code></li>
+        <li><code>Expiring Premium = Expiring ROL &times; Limit</code></li>
+        <li><code>New RA Flat Premium = New Expected Loss + (Expiring MSD &times; New Volatility)</code> &mdash; the expiring margin on standard deviation (MSD) is held constant and applied to this year's expected loss and volatility (standard deviation) to derive a risk-adjusted flat technical price.</li>
+        <li><code>New RA Flat ROL = New RA Flat Premium / Limit</code></li>
+        <li><code>Rate Change = New RA Flat ROL / Expiring ROL &minus; 1</code></li>
       </ul>
-      <h3>Reinstatements</h3>
-      <p>Expected reinstatement premium approximates the expected fraction of the layer limit eroded by loss (<code>EL / Limit</code>, capped at the number of reinstatements purchased) and charges it at the reinstatement rate: <code>Expected Reinstatement Premium = Gross Premium &times; Reinstatement Rate &times; min(Reinstatements, EL / Limit)</code>. This is a simplified expected-value approximation, not a full simulation.</p>
-      <h3>Tower aggregation</h3>
-      <p>Layer standard deviations are combined assuming independence between layers: <code>Tower &sigma; = &radic;(&Sigma; &sigma;<sub>i</sub><sup>2</sup>)</code>. If your cat model provides a correlated/aggregate tower standard deviation, use that instead of relying on this approximation.</p>
-      <h3>Notes</h3>
-      <p>Expected Loss (EL, a.k.a. AAL) and layer standard deviation should come from your catastrophe model output for each layer. &lambda; is a market price of risk you calibrate &mdash; higher &lambda; produces more conservative (higher) technical pricing. A floor badge appears on a layer when the minimum ROL floor binds ahead of the technical (EL + risk load) price.</p>
+      <p><strong>Margin on Standard Deviation (MSD)</strong> is the risk margin per unit of loss volatility implied by (or agreed for) the expiring placement: <code>(Expiring Premium &minus; Expiring Expected Loss) / Expiring Volatility</code>. Enter it directly per layer &mdash; from the prior year's pricing file, a market benchmark, or your own calculation. Holding MSD flat year-over-year is what makes this a "risk-adjusted flat" reprice: any change in the resulting rate on line is driven purely by the change in modeled expected loss and volatility, not by a change in risk appetite.</p>
     </details>
   </div>
 
@@ -346,32 +285,28 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "catxl-tower-state-v1";
-
-  const SEQ_STEPS = ["#86b6ef","#6da7ec","#5598e7","#3987e5","#2a78d6","#256abf","#1c5cab","#184f95"];
+  const STORAGE_KEY = "catxl-tower-state-v2";
 
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
   function defaultLayer(overrides) {
     return Object.assign({
       id: uid(), label: "Layer",
-      attachment: 0, limit: 0, el: 0, stdev: 0,
-      probAttach: null, probExhaust: null,
-      reinstNum: 0, reinstRate: 100,
-      lambdaOverride: null, riskLoadOverride: null, expenseOverride: null, floorOverride: null
+      attachment: 0, limit: 0,
+      expiringROL: 0, expiringMSD: 0,
+      newEL: 0, newVolatility: 0
     }, overrides);
   }
 
   function exampleState() {
     return {
-      towerName: "Example US Cat XL Program",
-      assumptions: { lambda: 0.25, expenseRatio: 30, rolFloor: 1.0 },
+      towerName: "Example US Cat XL Program — Renewal",
       layers: [
-        defaultLayer({ label: "Layer 1", attachment: 10, limit: 10, el: 1.20, stdev: 1.80, probAttach: 38, probExhaust: 14, reinstNum: 1, reinstRate: 100 }),
-        defaultLayer({ label: "Layer 2", attachment: 20, limit: 15, el: 0.60, stdev: 1.10, probAttach: 18, probExhaust: 6,  reinstNum: 1, reinstRate: 100 }),
-        defaultLayer({ label: "Layer 3", attachment: 35, limit: 25, el: 0.35, stdev: 0.80, probAttach: 9,  probExhaust: 3,  reinstNum: 1, reinstRate: 50 }),
-        defaultLayer({ label: "Layer 4", attachment: 60, limit: 50, el: 0.15, stdev: 0.50, probAttach: 4,  probExhaust: 1,  reinstNum: 0, reinstRate: 0 }),
-        defaultLayer({ label: "Layer 5", attachment: 110, limit: 100, el: 0.05, stdev: 0.25, probAttach: 1.5, probExhaust: 0.3, reinstNum: 0, reinstRate: 0 })
+        defaultLayer({ label: "Layer 1", attachment: 10, limit: 10, expiringROL: 22.0, expiringMSD: 0.50, newEL: 1.35, newVolatility: 1.95 }),
+        defaultLayer({ label: "Layer 2", attachment: 20, limit: 15, expiringROL: 11.5, expiringMSD: 0.45, newEL: 0.65, newVolatility: 1.15 }),
+        defaultLayer({ label: "Layer 3", attachment: 35, limit: 25, expiringROL: 4.6,  expiringMSD: 0.40, newEL: 0.30, newVolatility: 0.75 }),
+        defaultLayer({ label: "Layer 4", attachment: 60, limit: 50, expiringROL: 1.3,  expiringMSD: 0.38, newEL: 0.16, newVolatility: 0.52 }),
+        defaultLayer({ label: "Layer 5", attachment: 110, limit: 100, expiringROL: 0.55, expiringMSD: 0.35, newEL: 0.06, newVolatility: 0.28 })
       ]
     };
   }
@@ -379,8 +314,7 @@
   function emptyState() {
     return {
       towerName: "New Tower",
-      assumptions: { lambda: 0.25, expenseRatio: 30, rolFloor: 0 },
-      layers: [ defaultLayer({ label: "Layer 1", attachment: 10, limit: 10, el: 1.0, stdev: 1.5 }) ]
+      layers: [ defaultLayer({ label: "Layer 1", attachment: 10, limit: 10, expiringROL: 10, expiringMSD: 0.40, newEL: 1.0, newVolatility: 1.5 }) ]
     };
   }
 
@@ -408,75 +342,53 @@
     if (abs >= 1) return (vM < 0 ? "-" : "") + "$" + abs.toFixed(abs >= 100 ? 0 : 2) + "M";
     return (vM < 0 ? "-" : "") + "$" + Math.round(abs * 1000).toLocaleString() + "K";
   }
-  function fmtPct(v, dp) {
+  function fmtPctFraction(v, dp) {
     if (v === null || v === undefined || isNaN(v)) return "—";
     return (v * 100).toFixed(dp === undefined ? 2 : dp) + "%";
   }
-  function fmtNum(v, dp) {
+  function fmtPctNumber(v, dp) {
     if (v === null || v === undefined || isNaN(v)) return "—";
-    return v.toFixed(dp === undefined ? 2 : dp);
+    return v.toFixed(dp === undefined ? 2 : dp) + "%";
+  }
+  function fmtSignedPct(v, dp) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    const pct = v * 100;
+    const sign = pct > 0 ? "+" : "";
+    return sign + pct.toFixed(dp === undefined ? 1 : dp) + "%";
   }
 
   // ---------- calculation engine ----------
-  function computeLayer(layer, assumptions) {
-    const lambda = layer.lambdaOverride !== null && layer.lambdaOverride !== undefined && layer.lambdaOverride !== "" ? Number(layer.lambdaOverride) : Number(assumptions.lambda);
-    const expenseRatio = (layer.expenseOverride !== null && layer.expenseOverride !== undefined && layer.expenseOverride !== "" ? Number(layer.expenseOverride) : Number(assumptions.expenseRatio)) / 100;
-    const rolFloor = (layer.floorOverride !== null && layer.floorOverride !== undefined && layer.floorOverride !== "" ? Number(layer.floorOverride) : Number(assumptions.rolFloor)) / 100;
-
+  function computeLayer(layer) {
     const attachment = Number(layer.attachment) || 0;
     const limit = Number(layer.limit) || 0;
     const exhaustion = attachment + limit;
-    const el = Number(layer.el) || 0;
-    const stdev = Number(layer.stdev) || 0;
+    const expiringROL = Number(layer.expiringROL) || 0; // stored as a percent number, e.g. 5.25 = 5.25%
+    const expiringMSD = Number(layer.expiringMSD) || 0;
+    const newEL = Number(layer.newEL) || 0;
+    const newVolatility = Number(layer.newVolatility) || 0;
 
-    const cov = el > 0 ? stdev / el : null;
-    const hasRiskLoadOverride = layer.riskLoadOverride !== null && layer.riskLoadOverride !== undefined && layer.riskLoadOverride !== "";
-    const riskLoad = hasRiskLoadOverride ? Number(layer.riskLoadOverride) : lambda * stdev;
-    const technicalPremium = el + riskLoad;
-    const expenseDenom = 1 - expenseRatio;
-    const grossTech = expenseDenom > 0.001 ? technicalPremium / expenseDenom : technicalPremium;
-    const floorPremium = rolFloor * limit;
-    const floorBinding = floorPremium > grossTech;
-    const grossPremium = Math.max(grossTech, floorPremium);
-    const expenseAmount = grossPremium - technicalPremium;
-
-    const rol = limit > 0 ? grossPremium / limit : null;
-    const multiple = el > 0 ? grossPremium / el : null;
-    const payback = grossPremium > 0 ? limit / grossPremium : null;
-
-    const reinstNum = Number(layer.reinstNum) || 0;
-    const reinstRate = (Number(layer.reinstRate) || 0) / 100;
-    const expectedUsage = limit > 0 ? Math.min(reinstNum, el / limit) : 0;
-    const expectedReinstPremium = grossPremium * reinstRate * expectedUsage;
-    const totalExpectedPremium = grossPremium + expectedReinstPremium;
+    const expiringPremium = limit * (expiringROL / 100);
+    const newRAFlatPremium = newEL + expiringMSD * newVolatility;
+    const newRAFlatROL = limit > 0 ? newRAFlatPremium / limit : null; // fraction
+    const rateChange = (expiringROL > 0 && newRAFlatROL !== null) ? (newRAFlatROL / (expiringROL / 100)) - 1 : null;
 
     return {
-      id: layer.id, label: layer.label, attachment, limit, exhaustion, el, stdev, cov,
-      lambda, expenseRatio, rolFloor, hasRiskLoadOverride,
-      riskLoad, technicalPremium, expenseAmount, grossPremium, floorBinding,
-      rol, multiple, payback, expectedReinstPremium, totalExpectedPremium
+      id: layer.id, label: layer.label, attachment, limit, exhaustion,
+      expiringROL, expiringMSD, newEL, newVolatility,
+      expiringPremium, newRAFlatPremium, newRAFlatROL, rateChange
     };
   }
 
   function computeTower() {
-    const computed = state.layers.map(l => computeLayer(l, state.assumptions));
+    const computed = state.layers.map(l => computeLayer(l));
     const totalLimit = computed.reduce((s, l) => s + l.limit, 0);
-    const totalEL = computed.reduce((s, l) => s + l.el, 0);
-    const totalVar = computed.reduce((s, l) => s + l.stdev * l.stdev, 0);
-    const totalStdev = Math.sqrt(totalVar);
-    const totalGross = computed.reduce((s, l) => s + l.grossPremium, 0);
-    const totalRiskLoad = computed.reduce((s, l) => s + l.riskLoad, 0);
-    const totalExpense = computed.reduce((s, l) => s + l.expenseAmount, 0);
-    const totalReinst = computed.reduce((s, l) => s + l.expectedReinstPremium, 0);
-    const totalWithReinst = totalGross + totalReinst;
-    const blendedROL = totalLimit > 0 ? totalGross / totalLimit : null;
-    const blendedMultiple = totalEL > 0 ? totalGross / totalEL : null;
-    const blendedCoV = totalEL > 0 ? totalStdev / totalEL : null;
-    const blendedPayback = totalGross > 0 ? totalLimit / totalGross : null;
-    return {
-      layers: computed, totalLimit, totalEL, totalStdev, totalGross, totalRiskLoad,
-      totalExpense, totalReinst, totalWithReinst, blendedROL, blendedMultiple, blendedCoV, blendedPayback
-    };
+    const totalExpiringPremium = computed.reduce((s, l) => s + l.expiringPremium, 0);
+    const totalNewPremium = computed.reduce((s, l) => s + l.newRAFlatPremium, 0);
+    const blendedExpiringROL = totalLimit > 0 ? totalExpiringPremium / totalLimit : null;
+    const blendedNewROL = totalLimit > 0 ? totalNewPremium / totalLimit : null;
+    const blendedRateChange = (blendedExpiringROL !== null && blendedExpiringROL > 0 && blendedNewROL !== null)
+      ? (blendedNewROL / blendedExpiringROL) - 1 : null;
+    return { layers: computed, totalLimit, totalExpiringPremium, totalNewPremium, blendedExpiringROL, blendedNewROL, blendedRateChange };
   }
 
   // ---------- validation / warnings ----------
@@ -494,31 +406,19 @@
       }
     }
     state.layers.forEach(l => {
-      if (Number(l.el) > Number(l.limit) && Number(l.limit) > 0) {
-        warnings.push(`"${l.label}": expected loss ($${l.el}M) exceeds the layer limit ($${l.limit}M) — check inputs.`);
+      if (Number(l.newEL) > Number(l.limit) && Number(l.limit) > 0) {
+        warnings.push(`"${l.label}": new expected loss ($${l.newEL}M) exceeds the layer limit ($${l.limit}M) — check inputs.`);
       }
       if (Number(l.limit) <= 0) warnings.push(`"${l.label}": limit must be greater than zero.`);
     });
     return warnings;
   }
 
-  // ---------- rendering: assumptions ----------
-  function bindAssumptions() {
+  // ---------- rendering: header ----------
+  function bindHeader() {
     const nameEl = document.getElementById("tower-name");
     nameEl.value = state.towerName;
     nameEl.addEventListener("input", () => { state.towerName = nameEl.value; saveState(); });
-
-    const lambdaEl = document.getElementById("a-lambda");
-    lambdaEl.value = state.assumptions.lambda;
-    lambdaEl.addEventListener("input", () => { state.assumptions.lambda = Number(lambdaEl.value); recalcAndRender(); });
-
-    const expenseEl = document.getElementById("a-expense");
-    expenseEl.value = state.assumptions.expenseRatio;
-    expenseEl.addEventListener("input", () => { state.assumptions.expenseRatio = Number(expenseEl.value); recalcAndRender(); });
-
-    const floorEl = document.getElementById("a-floor");
-    floorEl.value = state.assumptions.rolFloor;
-    floorEl.addEventListener("input", () => { state.assumptions.rolFloor = Number(floorEl.value); recalcAndRender(); });
   }
 
   // ---------- rendering: layer editor ----------
@@ -527,9 +427,8 @@
     const input = document.createElement("input");
     input.type = "number";
     input.step = opts.step || "0.01";
-    input.placeholder = opts.placeholder || "";
     input.value = (value === null || value === undefined) ? "" : value;
-    input.addEventListener("input", () => onInput(input.value === "" ? (opts.allowEmpty ? null : 0) : input.value));
+    input.addEventListener("input", () => onInput(input.value === "" ? 0 : Number(input.value)));
     return input;
   }
 
@@ -554,18 +453,12 @@
         tr.appendChild(td);
       }
 
-      addCell(layer.attachment, v => { layer.attachment = Number(v); recalcAndRender(); }, { step: "0.5" });
-      addCell(layer.limit, v => { layer.limit = Number(v); recalcAndRender(); }, { step: "0.5" });
-      addCell(layer.el, v => { layer.el = Number(v); recalcAndRender(); }, { step: "0.01" });
-      addCell(layer.stdev, v => { layer.stdev = Number(v); recalcAndRender(); }, { step: "0.01" });
-      addCell(layer.probAttach, v => { layer.probAttach = v === null ? null : Number(v); recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "—" });
-      addCell(layer.probExhaust, v => { layer.probExhaust = v === null ? null : Number(v); recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "—" });
-      addCell(layer.reinstNum, v => { layer.reinstNum = Number(v); recalcAndRender(); }, { step: "1" });
-      addCell(layer.reinstRate, v => { layer.reinstRate = Number(v); recalcAndRender(); }, { step: "5" });
-      addCell(layer.lambdaOverride, v => { layer.lambdaOverride = v; recalcAndRender(); }, { step: "0.01", allowEmpty: true, placeholder: "default" });
-      addCell(layer.riskLoadOverride, v => { layer.riskLoadOverride = v; recalcAndRender(); }, { step: "0.01", allowEmpty: true, placeholder: "λ×σ" });
-      addCell(layer.expenseOverride, v => { layer.expenseOverride = v; recalcAndRender(); }, { step: "0.5", allowEmpty: true, placeholder: "default" });
-      addCell(layer.floorOverride, v => { layer.floorOverride = v; recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "default" });
+      addCell(layer.attachment, v => { layer.attachment = v; recalcAndRender(); }, { step: "0.5" });
+      addCell(layer.limit, v => { layer.limit = v; recalcAndRender(); }, { step: "0.5" });
+      addCell(layer.expiringROL, v => { layer.expiringROL = v; recalcAndRender(); }, { step: "0.1" });
+      addCell(layer.expiringMSD, v => { layer.expiringMSD = v; recalcAndRender(); }, { step: "0.01" });
+      addCell(layer.newEL, v => { layer.newEL = v; recalcAndRender(); }, { step: "0.01" });
+      addCell(layer.newVolatility, v => { layer.newVolatility = v; recalcAndRender(); }, { step: "0.01" });
 
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
@@ -589,11 +482,11 @@
     const row = document.getElementById("kpi-row");
     const items = [
       { label: "Total limit", value: fmtMoneyM(tower.totalLimit) },
-      { label: "Total expected loss", value: fmtMoneyM(tower.totalEL) },
-      { label: "Total gross premium", value: fmtMoneyM(tower.totalGross), sub: `incl. reinst.: ${fmtMoneyM(tower.totalWithReinst)}` },
-      { label: "Blended ROL", value: fmtPct(tower.blendedROL) },
-      { label: "Blended multiple of EL", value: tower.blendedMultiple === null ? "—" : fmtNum(tower.blendedMultiple, 2) + "x" },
-      { label: "Blended payback", value: tower.blendedPayback === null ? "—" : fmtNum(tower.blendedPayback, 1) + " yrs" }
+      { label: "Total expiring premium", value: fmtMoneyM(tower.totalExpiringPremium) },
+      { label: "Total new RA Flat premium", value: fmtMoneyM(tower.totalNewPremium) },
+      { label: "Blended expiring ROL", value: fmtPctFraction(tower.blendedExpiringROL) },
+      { label: "Blended new RA Flat ROL", value: fmtPctFraction(tower.blendedNewROL) },
+      { label: "Blended rate change", value: fmtSignedPct(tower.blendedRateChange) }
     ];
     row.innerHTML = "";
     items.forEach(it => {
@@ -605,23 +498,26 @@
   }
 
   // ---------- rendering: results table ----------
+  function rateChangeClass(rc) {
+    if (rc === null || isNaN(rc)) return "rate-flat";
+    if (rc > 0.005) return "rate-up";
+    if (rc < -0.005) return "rate-down";
+    return "rate-flat";
+  }
+
   function renderResults(tower) {
     const tbody = document.getElementById("results-tbody");
     tbody.innerHTML = "";
     tower.layers.forEach(l => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="text-align:left;">${escapeHtml(l.label)}${l.floorBinding ? '<span class="badge floor" title="Minimum ROL floor is binding for this layer">floor</span>' : ""}</td>
+        <td style="text-align:left;">${escapeHtml(l.label)}</td>
         <td>${fmtMoneyM(l.attachment)} &ndash; ${fmtMoneyM(l.exhaustion)}</td>
-        <td>${l.cov === null ? "—" : fmtNum(l.cov, 2)}</td>
-        <td>${fmtMoneyM(l.riskLoad)}${l.hasRiskLoadOverride ? '<span class="badge custom" title="Manually entered risk load, overrides λ×σ">custom</span>' : ""}</td>
-        <td>${fmtMoneyM(l.technicalPremium)}</td>
-        <td>${fmtMoneyM(l.grossPremium)}</td>
-        <td>${fmtPct(l.rol)}</td>
-        <td>${l.multiple === null ? "—" : fmtNum(l.multiple, 2) + "x"}</td>
-        <td>${l.payback === null ? "—" : fmtNum(l.payback, 1)}</td>
-        <td>${fmtMoneyM(l.expectedReinstPremium)}</td>
-        <td>${fmtMoneyM(l.totalExpectedPremium)}</td>
+        <td>${fmtPctNumber(l.expiringROL)}</td>
+        <td>${fmtMoneyM(l.expiringPremium)}</td>
+        <td>${fmtMoneyM(l.newRAFlatPremium)}</td>
+        <td>${fmtPctFraction(l.newRAFlatROL)}</td>
+        <td class="${rateChangeClass(l.rateChange)}">${fmtSignedPct(l.rateChange)}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -631,15 +527,11 @@
       <tr style="font-weight:650; border-top: 1px solid var(--border-strong);">
         <td style="text-align:left;">Tower total</td>
         <td>${fmtMoneyM(tower.totalLimit)} limit</td>
-        <td>${tower.blendedCoV === null ? "—" : fmtNum(tower.blendedCoV, 2)}</td>
-        <td>${fmtMoneyM(tower.totalRiskLoad)}</td>
-        <td>${fmtMoneyM(tower.totalEL + tower.totalRiskLoad)}</td>
-        <td>${fmtMoneyM(tower.totalGross)}</td>
-        <td>${fmtPct(tower.blendedROL)}</td>
-        <td>${tower.blendedMultiple === null ? "—" : fmtNum(tower.blendedMultiple, 2) + "x"}</td>
-        <td>${tower.blendedPayback === null ? "—" : fmtNum(tower.blendedPayback, 1)}</td>
-        <td>${fmtMoneyM(tower.totalReinst)}</td>
-        <td>${fmtMoneyM(tower.totalWithReinst)}</td>
+        <td>${fmtPctFraction(tower.blendedExpiringROL)}</td>
+        <td>${fmtMoneyM(tower.totalExpiringPremium)}</td>
+        <td>${fmtMoneyM(tower.totalNewPremium)}</td>
+        <td>${fmtPctFraction(tower.blendedNewROL)}</td>
+        <td class="${rateChangeClass(tower.blendedRateChange)}">${fmtSignedPct(tower.blendedRateChange)}</td>
       </tr>
     `;
   }
@@ -682,164 +574,82 @@
     return el;
   }
 
-  // ---------- chart: tower structure ----------
-  function renderTowerChart(tower) {
-    const container = document.getElementById("chart-tower");
-    container.innerHTML = "";
-    const layers = tower.layers;
-    if (layers.length === 0) { container.textContent = "Add a layer to see the tower diagram."; return; }
-
-    const W = Math.max(420, layers.length * 110);
-    const H = 340;
-    const marginL = 56, marginR = 16, marginT = 28, marginB = 40;
-    const plotW = W - marginL - marginR;
-    const plotH = H - marginT - marginB;
-
-    const maxVal = Math.max(...layers.map(l => l.exhaustion), 1);
-    const yScale = v => marginT + plotH - (Math.sqrt(Math.max(v, 0)) / Math.sqrt(maxVal)) * plotH;
-
-    const rols = layers.map(l => l.rol || 0);
-    const minROL = Math.min(...rols), maxROL = Math.max(...rols);
-    function colorFor(rol) {
-      const t = maxROL > minROL ? (rol - minROL) / (maxROL - minROL) : 0.5;
-      const idx = Math.round(t * (SEQ_STEPS.length - 1));
-      return SEQ_STEPS[idx];
-    }
-
-    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Tower structure chart" });
-
-    // gridlines + y ticks (nice $ values across sqrt scale)
-    const niceTicks = pickTicks(maxVal);
-    niceTicks.forEach(t => {
-      const y = yScale(t);
-      svg.appendChild(svgEl("line", { x1: marginL, x2: W - marginR, y1: y, y2: y, class: "grid-line" }));
-      const label = svgEl("text", { x: marginL - 8, y: y + 3, "text-anchor": "end", class: "muted" });
-      label.textContent = fmtMoneyM(t);
-      svg.appendChild(label);
-    });
-    svg.appendChild(svgEl("line", { x1: marginL, x2: marginL, y1: marginT, y2: marginT + plotH, class: "axis-line" }));
-
-    const bw = Math.min(48, plotW / layers.length * 0.55);
-    layers.forEach((l, i) => {
-      const cx = marginL + (i + 0.5) * (plotW / layers.length);
-      const yTop = yScale(l.exhaustion);
-      const yBot = yScale(l.attachment);
-      const rect = svgEl("rect", {
-        x: cx - bw / 2, y: yTop, width: bw, height: Math.max(2, yBot - yTop),
-        rx: 4, ry: 4, fill: colorFor(l.rol || 0)
-      });
-      rect.addEventListener("mousemove", e => moveTooltip(e));
-      rect.addEventListener("mouseenter", e => showTooltip(e, l.label, [
-        ["Attach – Exhaust", `${fmtMoneyM(l.attachment)} – ${fmtMoneyM(l.exhaustion)}`],
-        ["Limit", fmtMoneyM(l.limit)],
-        ["Expected loss", fmtMoneyM(l.el)],
-        ["ROL", fmtPct(l.rol)],
-        ["Gross premium", fmtMoneyM(l.grossPremium)]
-      ]));
-      rect.addEventListener("mouseleave", hideTooltip);
-      svg.appendChild(rect);
-
-      const rolLabel = svgEl("text", { x: cx, y: yTop - 8, "text-anchor": "middle", style: "font-weight:650;" });
-      rolLabel.setAttribute("fill", "var(--text-primary)");
-      rolLabel.textContent = fmtPct(l.rol, 1);
-      svg.appendChild(rolLabel);
-
-      const nameLabel = svgEl("text", { x: cx, y: H - marginB + 16, "text-anchor": "middle", class: "muted" });
-      nameLabel.textContent = l.label.length > 12 ? l.label.slice(0, 11) + "…" : l.label;
-      svg.appendChild(nameLabel);
-    });
-
-    container.appendChild(svg);
-  }
-
   function pickTicks(maxVal) {
-    const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000];
+    const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
     let step = steps.find(s => maxVal / s <= 5) || Math.ceil(maxVal / 5);
     const ticks = [];
-    for (let v = 0; v <= maxVal * 1.02; v += step) ticks.push(v);
+    for (let v = 0; v <= maxVal * 1.02; v += step) ticks.push(Math.round(v * 1000) / 1000);
     if (ticks.length < 2) ticks.push(maxVal);
     return ticks;
   }
 
-  // ---------- chart: premium composition (stacked) ----------
-  function renderCompositionChart(tower) {
-    const container = document.getElementById("chart-composition");
-    const legendEl = document.getElementById("composition-legend");
+  // ---------- chart: ROL comparison (grouped columns) ----------
+  function renderROLChart(tower) {
+    const container = document.getElementById("chart-rol");
+    const legendEl = document.getElementById("rol-legend");
     container.innerHTML = "";
     const layers = tower.layers;
-    if (layers.length === 0) { container.textContent = "Add a layer to see premium composition."; legendEl.innerHTML = ""; return; }
+    if (layers.length === 0) { container.textContent = "Add a layer to see the rate comparison."; legendEl.innerHTML = ""; return; }
 
-    const W = Math.max(420, layers.length * 110);
-    const H = 340;
-    const marginL = 60, marginR = 16, marginT = 20, marginB = 40;
+    const W = Math.max(460, layers.length * 120);
+    const H = 320;
+    const marginL = 54, marginR = 16, marginT = 24, marginB = 40;
     const plotW = W - marginL - marginR;
     const plotH = H - marginT - marginB;
 
-    const totals = layers.map(l => l.grossPremium);
-    const maxTotal = Math.max(...totals, 0.01);
-    const ticks = pickTicks(maxTotal);
-    const yScale = v => marginT + plotH - (v / (ticks[ticks.length - 1] || maxTotal)) * plotH;
+    const maxVal = Math.max(...layers.map(l => l.expiringROL), ...layers.map(l => (l.newRAFlatROL || 0) * 100), 1);
+    const ticks = pickTicks(maxVal);
+    const yMax = ticks[ticks.length - 1] || maxVal;
+    const yScale = v => marginT + plotH - (v / yMax) * plotH;
 
-    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Premium composition chart" });
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Rate on line comparison chart" });
 
     ticks.forEach(t => {
       const y = yScale(t);
       svg.appendChild(svgEl("line", { x1: marginL, x2: W - marginR, y1: y, y2: y, class: "grid-line" }));
       const label = svgEl("text", { x: marginL - 8, y: y + 3, "text-anchor": "end", class: "muted" });
-      label.textContent = fmtMoneyM(t);
+      label.textContent = t.toFixed(t < 1 ? 1 : 0) + "%";
       svg.appendChild(label);
     });
     svg.appendChild(svgEl("line", { x1: marginL, x2: W - marginR, y1: yScale(0), y2: yScale(0), class: "axis-line" }));
 
-    const bw = Math.min(44, plotW / layers.length * 0.55);
+    const groupW = plotW / layers.length;
+    const barW = Math.min(26, groupW * 0.28);
     const gap = 2;
-    const colors = { el: "var(--series-1)", risk: "var(--series-2)", exp: "var(--series-3)" };
 
     layers.forEach((l, i) => {
-      const cx = marginL + (i + 0.5) * (plotW / layers.length);
-      const x0 = cx - bw / 2;
-      const segs = [
-        { key: "el", value: l.el, label: "Expected loss", color: colors.el },
-        { key: "risk", value: l.riskLoad, label: "Risk load", color: colors.risk },
-        { key: "exp", value: l.expenseAmount, label: "Expense load", color: colors.exp }
-      ];
-      let cumulative = 0;
-      segs.forEach((seg, si) => {
-        const yTopVal = cumulative + Math.max(seg.value, 0);
-        const yTop = yScale(yTopVal);
-        const yBase = yScale(cumulative);
-        let h = Math.max(0, yBase - yTop - (si < segs.length - 1 ? gap : 0));
-        const isLast = si === segs.length - 1;
-        const rect = svgEl("rect", {
-          x: x0, y: yTop, width: bw, height: Math.max(0, h),
-          fill: seg.color,
-          rx: isLast ? 4 : 0, ry: isLast ? 4 : 0
-        });
-        rect.addEventListener("mousemove", e => moveTooltip(e));
-        rect.addEventListener("mouseenter", e => showTooltip(e, `${l.label} — ${seg.label}`, [
-          ["Amount", fmtMoneyM(seg.value)],
-          ["Gross premium", fmtMoneyM(l.grossPremium)]
-        ]));
-        rect.addEventListener("mouseleave", hideTooltip);
-        svg.appendChild(rect);
-        cumulative += Math.max(seg.value, 0);
+      const groupCenter = marginL + (i + 0.5) * groupW;
+      const xExp = groupCenter - barW - gap / 2;
+      const xNew = groupCenter + gap / 2;
+      const newROLPct = (l.newRAFlatROL || 0) * 100;
+
+      const barExp = svgEl("rect", {
+        x: xExp, y: yScale(l.expiringROL), width: barW, height: Math.max(1, yScale(0) - yScale(l.expiringROL)),
+        rx: 4, ry: 4, fill: "var(--series-1)"
       });
+      barExp.addEventListener("mousemove", e => moveTooltip(e));
+      barExp.addEventListener("mouseenter", e => showTooltip(e, `${l.label} — Expiring`, [["ROL", fmtPctNumber(l.expiringROL)], ["Premium", fmtMoneyM(l.expiringPremium)]]));
+      barExp.addEventListener("mouseleave", hideTooltip);
+      svg.appendChild(barExp);
 
-      const totalLabel = svgEl("text", { x: cx, y: yScale(cumulative) - 8, "text-anchor": "middle", style: "font-weight:650;" });
-      totalLabel.setAttribute("fill", "var(--text-primary)");
-      totalLabel.textContent = fmtMoneyM(l.grossPremium);
-      svg.appendChild(totalLabel);
+      const barNew = svgEl("rect", {
+        x: xNew, y: yScale(newROLPct), width: barW, height: Math.max(1, yScale(0) - yScale(newROLPct)),
+        rx: 4, ry: 4, fill: "var(--series-2)"
+      });
+      barNew.addEventListener("mousemove", e => moveTooltip(e));
+      barNew.addEventListener("mouseenter", e => showTooltip(e, `${l.label} — New RA Flat`, [["ROL", fmtPctFraction(l.newRAFlatROL)], ["Premium", fmtMoneyM(l.newRAFlatPremium)], ["Rate change", fmtSignedPct(l.rateChange)]]));
+      barNew.addEventListener("mouseleave", hideTooltip);
+      svg.appendChild(barNew);
 
-      const nameLabel = svgEl("text", { x: cx, y: H - marginB + 16, "text-anchor": "middle", class: "muted" });
+      const nameLabel = svgEl("text", { x: groupCenter, y: H - marginB + 16, "text-anchor": "middle", class: "muted" });
       nameLabel.textContent = l.label.length > 12 ? l.label.slice(0, 11) + "…" : l.label;
       svg.appendChild(nameLabel);
     });
 
     container.appendChild(svg);
     legendEl.innerHTML = `
-      <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Expected loss</span>
-      <span class="item"><span class="swatch" style="background:var(--series-2)"></span>Risk load</span>
-      <span class="item"><span class="swatch" style="background:var(--series-3)"></span>Expense load</span>
+      <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Expiring ROL</span>
+      <span class="item"><span class="swatch" style="background:var(--series-2)"></span>New RA Flat ROL</span>
     `;
   }
 
@@ -850,13 +660,12 @@
     renderWarnings();
     renderKPIs(tower);
     renderResults(tower);
-    renderTowerChart(tower);
-    renderCompositionChart(tower);
+    renderROLChart(tower);
     if (structural) renderLayerEditor();
   }
 
   function fullRender() {
-    bindAssumptions();
+    bindHeader();
     renderLayerEditor();
     recalcAndRender(false);
   }
@@ -865,7 +674,7 @@
   document.getElementById("btn-add-layer").addEventListener("click", () => {
     const last = state.layers[state.layers.length - 1];
     const attach = last ? last.attachment + last.limit : 0;
-    state.layers.push(defaultLayer({ label: `Layer ${state.layers.length + 1}`, attachment: attach, limit: 10, el: 0.1, stdev: 0.2 }));
+    state.layers.push(defaultLayer({ label: `Layer ${state.layers.length + 1}`, attachment: attach, limit: 10, expiringROL: 1, expiringMSD: 0.4, newEL: 0.1, newVolatility: 0.2 }));
     recalcAndRender(true);
   });
 
@@ -875,13 +684,13 @@
   });
 
   document.getElementById("btn-example").addEventListener("click", () => {
-    if (!confirm("Load the example tower? This will replace your current layers and assumptions.")) return;
+    if (!confirm("Load the example tower? This will replace your current layers.")) return;
     state = exampleState();
     fullRender();
   });
 
   document.getElementById("btn-new").addEventListener("click", () => {
-    if (!confirm("Start a new blank tower? This will replace your current layers and assumptions.")) return;
+    if (!confirm("Start a new blank tower? This will replace your current layers.")) return;
     state = emptyState();
     fullRender();
   });
