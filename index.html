@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cat XL Tower Pricer</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --border-strong:  rgba(11,11,11,0.16);
+    --series-1:       #2a78d6; /* blue    - Expected Loss */
+    --series-2:       #eb6834; /* orange  - Risk Load */
+    --series-3:       #1baf7a; /* aqua    - Expense Load */
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --critical:       #d03b3b;
+    --input-bg:       #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --border-strong:  rgba(255,255,255,0.18);
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --good:           #0ca30c;
+      --warning:        #fab219;
+      --critical:       #e66767;
+      --input-bg:       #232322;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --border-strong:  rgba(255,255,255,0.18);
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --series-3:       #199e70;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --critical:       #e66767;
+    --input-bg:       #232322;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { padding: 24px; max-width: 1180px; margin: 0 auto; }
+
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 2px; }
+  h2 { font-size: 14px; font-weight: 650; margin: 0 0 12px; letter-spacing: .01em; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; margin: 0 0 20px; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+
+  .topbar { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  button {
+    font-family: inherit; font-size: 12.5px; font-weight: 550;
+    padding: 7px 12px; border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-1); color: var(--text-primary);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--text-muted); }
+  button.primary { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+  button.primary:hover { opacity: .92; }
+  button.danger { color: var(--critical); }
+  button.small { padding: 4px 9px; font-size: 11.5px; }
+  input[type="file"] { display: none; }
+
+  label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  input[type="text"], input[type="number"] {
+    font-family: inherit; font-size: 13px;
+    background: var(--input-bg); color: var(--text-primary);
+    border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 6px 8px; width: 100%;
+  }
+  input[type="number"] { font-variant-numeric: tabular-nums; }
+  input:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
+
+  .assumptions-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px 16px; align-items: end;
+  }
+  .assumptions-grid .field small { display:block; color: var(--text-muted); font-size: 10.5px; margin-top: 3px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { padding: 7px 8px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    color: var(--text-muted); font-weight: 550; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: .03em;
+    border-bottom: 1px solid var(--gridline);
+  }
+  tbody td { border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: color-mix(in srgb, var(--series-1) 6%, transparent); }
+  td input { text-align: right; padding: 5px 6px; font-size: 12.5px; }
+  td.layer-name { min-width: 108px; }
+  td.layer-name input { text-align: left; font-weight: 550; min-width: 100px; }
+  .editor-wrap, .results-wrap { overflow-x: auto; }
+  .col-actions { width: 34px; }
+
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 6px; border-radius: 10px; margin-left: 5px; vertical-align: middle;
+  }
+  .badge.floor { background: color-mix(in srgb, var(--warning) 25%, transparent); color: var(--text-primary); }
+
+  .warn-banner {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: color-mix(in srgb, var(--warning) 14%, var(--surface-1));
+    border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+    border-radius: 10px; padding: 10px 14px; font-size: 12.5px;
+    color: var(--text-primary); margin-bottom: 14px;
+  }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .kpi {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .kpi .label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+  .kpi .value { font-size: 22px; font-weight: 650; }
+  .kpi .sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  .charts-row { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+  .chart-scroll { overflow-x: auto; }
+  svg text { fill: var(--text-secondary); font-size: 10.5px; font-family: inherit; }
+  svg .muted { fill: var(--text-muted); }
+  svg .axis-line { stroke: var(--baseline); stroke-width: 1; }
+  svg .grid-line { stroke: var(--gridline); stroke-width: 1; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--text-secondary); }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  #tooltip {
+    position: fixed; pointer-events: none; z-index: 50;
+    background: var(--surface-1); border: 1px solid var(--border-strong);
+    border-radius: 8px; padding: 8px 10px; font-size: 11.5px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    opacity: 0; transition: opacity .08s ease; max-width: 220px;
+  }
+  #tooltip .t-title { font-weight: 650; margin-bottom: 3px; }
+  #tooltip .t-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); }
+  #tooltip .t-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  details.methodology summary {
+    cursor: pointer; font-size: 13px; font-weight: 600; padding: 4px 0;
+  }
+  details.methodology { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+  details.methodology code {
+    background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+    padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: var(--text-primary);
+  }
+  details.methodology h3 { font-size: 12.5px; color: var(--text-primary); margin: 14px 0 4px; }
+  details.methodology ul { margin: 4px 0; padding-left: 18px; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 28px; }
+
+  @media print {
+    button, .toolbar, details.methodology { display: none !important; }
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <h1>Cat XL Tower Pricer</h1>
+      <p class="subtitle">Risk-adjusted layer pricing for catastrophe excess-of-loss towers &mdash; expected loss + volatility loading. All monetary layer inputs are in $ millions.</p>
+    </div>
+    <div class="toolbar">
+      <button id="btn-example" class="small">Load example tower</button>
+      <button id="btn-new" class="small">New tower</button>
+      <button id="btn-export" class="small">Export JSON</button>
+      <button id="btn-import" class="small">Import JSON</button>
+      <input type="file" id="file-import" accept="application/json" />
+      <button id="btn-print" class="small">Print / PDF</button>
+    </div>
+  </div>
+
+  <div id="warn-area"></div>
+
+  <div class="card">
+    <h2>Program</h2>
+    <div class="assumptions-grid">
+      <div class="field">
+        <label for="tower-name">Tower / program name</label>
+        <input type="text" id="tower-name" />
+      </div>
+      <div class="field">
+        <label for="a-lambda">Default risk load &lambda; <span title="Market price of risk">(&times; layer std. dev.)</span></label>
+        <input type="number" id="a-lambda" step="0.01" min="0" />
+        <small>Risk load = &lambda; &times; &sigma;. Calibrate to your market view (typical 0.10&ndash;0.40).</small>
+      </div>
+      <div class="field">
+        <label for="a-expense">Default expense ratio (%)</label>
+        <input type="number" id="a-expense" step="0.5" min="0" max="95" />
+        <small>Brokerage + ceding commission + internal load, grossed up.</small>
+      </div>
+      <div class="field">
+        <label for="a-floor">Default minimum ROL floor (%)</label>
+        <input type="number" id="a-floor" step="0.1" min="0" />
+        <small>Market floor rate regardless of technical price. 0 = disabled.</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Layers <span style="font-weight:400; color:var(--text-muted); text-transform:none; letter-spacing:0;">($M unless noted)</span></h2>
+    <div class="editor-wrap">
+      <table id="layer-editor">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Layer</th>
+            <th>Attach ($M)</th>
+            <th>Limit ($M)</th>
+            <th>Exp. loss ($M)</th>
+            <th>Std dev ($M)</th>
+            <th>Prob. attach (%)</th>
+            <th>Prob. exhaust (%)</th>
+            <th>Reinst. #</th>
+            <th>Reinst. rate (%)</th>
+            <th>&lambda; override</th>
+            <th>Expense % override</th>
+            <th>Floor % override</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="layer-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px;">
+      <button id="btn-add-layer" class="primary small">+ Add layer</button>
+      <button id="btn-sort-layers" class="small">Sort by attachment</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <div class="card">
+    <h2>Layer pricing results</h2>
+    <div class="results-wrap">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Layer</th>
+            <th>Attach&ndash;Exhaust</th>
+            <th>CoV</th>
+            <th>Risk load</th>
+            <th>Technical prem.</th>
+            <th>Gross premium</th>
+            <th>ROL</th>
+            <th>Multiple of EL</th>
+            <th>Payback (yrs)</th>
+            <th>Exp. reinst. prem.</th>
+            <th>Total exp. premium</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody"></tbody>
+        <tfoot id="results-tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="card">
+      <h2>Tower structure &mdash; colored by rate on line</h2>
+      <div class="chart-scroll" id="chart-tower"></div>
+    </div>
+    <div class="card">
+      <h2>Premium composition by layer</h2>
+      <div class="chart-scroll" id="chart-composition"></div>
+      <div class="legend" id="composition-legend"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <details class="methodology">
+      <summary>Methodology &amp; formulas</summary>
+      <h3>Layer technical pricing</h3>
+      <ul>
+        <li><code>CoV = &sigma; / EL</code> &mdash; coefficient of variation of layer loss</li>
+        <li><code>Risk Load = &lambda; &times; &sigma;</code> &mdash; standard-deviation risk loading, the classic actuarial risk-adjusted premium principle</li>
+        <li><code>Technical Premium = EL + Risk Load</code></li>
+        <li><code>Gross Premium = Technical Premium / (1 &minus; Expense Ratio)</code>, then floored at <code>ROL Floor &times; Limit</code> if higher</li>
+        <li><code>ROL = Gross Premium / Limit</code></li>
+        <li><code>Multiple of EL = Gross Premium / EL</code> &mdash; the market "rate-to-EL" multiple</li>
+        <li><code>Payback (years) = Limit / Gross Premium</code></li>
+      </ul>
+      <h3>Reinstatements</h3>
+      <p>Expected reinstatement premium approximates the expected fraction of the layer limit eroded by loss (<code>EL / Limit</code>, capped at the number of reinstatements purchased) and charges it at the reinstatement rate: <code>Expected Reinstatement Premium = Gross Premium &times; Reinstatement Rate &times; min(Reinstatements, EL / Limit)</code>. This is a simplified expected-value approximation, not a full simulation.</p>
+      <h3>Tower aggregation</h3>
+      <p>Layer standard deviations are combined assuming independence between layers: <code>Tower &sigma; = &radic;(&Sigma; &sigma;<sub>i</sub><sup>2</sup>)</code>. If your cat model provides a correlated/aggregate tower standard deviation, use that instead of relying on this approximation.</p>
+      <h3>Notes</h3>
+      <p>Expected Loss (EL, a.k.a. AAL) and layer standard deviation should come from your catastrophe model output for each layer. &lambda; is a market price of risk you calibrate &mdash; higher &lambda; produces more conservative (higher) technical pricing. A floor badge appears on a layer when the minimum ROL floor binds ahead of the technical (EL + risk load) price.</p>
+    </details>
+  </div>
+
+  <footer>All calculations run locally in your browser. Nothing is sent anywhere &mdash; use Export JSON to save a tower.</footer>
+
+  <div id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "catxl-tower-state-v1";
+
+  const SEQ_STEPS = ["#86b6ef","#6da7ec","#5598e7","#3987e5","#2a78d6","#256abf","#1c5cab","#184f95"];
+
+  function uid() { return Math.random().toString(36).slice(2, 10); }
+
+  function defaultLayer(overrides) {
+    return Object.assign({
+      id: uid(), label: "Layer",
+      attachment: 0, limit: 0, el: 0, stdev: 0,
+      probAttach: null, probExhaust: null,
+      reinstNum: 0, reinstRate: 100,
+      lambdaOverride: null, expenseOverride: null, floorOverride: null
+    }, overrides);
+  }
+
+  function exampleState() {
+    return {
+      towerName: "Example US Cat XL Program",
+      assumptions: { lambda: 0.25, expenseRatio: 30, rolFloor: 1.0 },
+      layers: [
+        defaultLayer({ label: "Layer 1", attachment: 10, limit: 10, el: 1.20, stdev: 1.80, probAttach: 38, probExhaust: 14, reinstNum: 1, reinstRate: 100 }),
+        defaultLayer({ label: "Layer 2", attachment: 20, limit: 15, el: 0.60, stdev: 1.10, probAttach: 18, probExhaust: 6,  reinstNum: 1, reinstRate: 100 }),
+        defaultLayer({ label: "Layer 3", attachment: 35, limit: 25, el: 0.35, stdev: 0.80, probAttach: 9,  probExhaust: 3,  reinstNum: 1, reinstRate: 50 }),
+        defaultLayer({ label: "Layer 4", attachment: 60, limit: 50, el: 0.15, stdev: 0.50, probAttach: 4,  probExhaust: 1,  reinstNum: 0, reinstRate: 0 }),
+        defaultLayer({ label: "Layer 5", attachment: 110, limit: 100, el: 0.05, stdev: 0.25, probAttach: 1.5, probExhaust: 0.3, reinstNum: 0, reinstRate: 0 })
+      ]
+    };
+  }
+
+  function emptyState() {
+    return {
+      towerName: "New Tower",
+      assumptions: { lambda: 0.25, expenseRatio: 30, rolFloor: 0 },
+      layers: [ defaultLayer({ label: "Layer 1", attachment: 10, limit: 10, el: 1.0, stdev: 1.5 }) ]
+    };
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return exampleState();
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.layers)) return exampleState();
+      return parsed;
+    } catch (e) { return exampleState(); }
+  }
+
+  let state = loadState();
+
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  // ---------- formatting ----------
+  function fmtMoneyM(vM) {
+    if (vM === null || vM === undefined || isNaN(vM)) return "—";
+    const abs = Math.abs(vM);
+    if (abs >= 1000) return (vM < 0 ? "-" : "") + "$" + (abs / 1000).toFixed(2) + "Bn";
+    if (abs >= 1) return (vM < 0 ? "-" : "") + "$" + abs.toFixed(abs >= 100 ? 0 : 2) + "M";
+    return (vM < 0 ? "-" : "") + "$" + Math.round(abs * 1000).toLocaleString() + "K";
+  }
+  function fmtPct(v, dp) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    return (v * 100).toFixed(dp === undefined ? 2 : dp) + "%";
+  }
+  function fmtNum(v, dp) {
+    if (v === null || v === undefined || isNaN(v)) return "—";
+    return v.toFixed(dp === undefined ? 2 : dp);
+  }
+
+  // ---------- calculation engine ----------
+  function computeLayer(layer, assumptions) {
+    const lambda = layer.lambdaOverride !== null && layer.lambdaOverride !== undefined && layer.lambdaOverride !== "" ? Number(layer.lambdaOverride) : Number(assumptions.lambda);
+    const expenseRatio = (layer.expenseOverride !== null && layer.expenseOverride !== undefined && layer.expenseOverride !== "" ? Number(layer.expenseOverride) : Number(assumptions.expenseRatio)) / 100;
+    const rolFloor = (layer.floorOverride !== null && layer.floorOverride !== undefined && layer.floorOverride !== "" ? Number(layer.floorOverride) : Number(assumptions.rolFloor)) / 100;
+
+    const attachment = Number(layer.attachment) || 0;
+    const limit = Number(layer.limit) || 0;
+    const exhaustion = attachment + limit;
+    const el = Number(layer.el) || 0;
+    const stdev = Number(layer.stdev) || 0;
+
+    const cov = el > 0 ? stdev / el : null;
+    const riskLoad = lambda * stdev;
+    const technicalPremium = el + riskLoad;
+    const expenseDenom = 1 - expenseRatio;
+    const grossTech = expenseDenom > 0.001 ? technicalPremium / expenseDenom : technicalPremium;
+    const floorPremium = rolFloor * limit;
+    const floorBinding = floorPremium > grossTech;
+    const grossPremium = Math.max(grossTech, floorPremium);
+    const expenseAmount = grossPremium - technicalPremium;
+
+    const rol = limit > 0 ? grossPremium / limit : null;
+    const multiple = el > 0 ? grossPremium / el : null;
+    const payback = grossPremium > 0 ? limit / grossPremium : null;
+
+    const reinstNum = Number(layer.reinstNum) || 0;
+    const reinstRate = (Number(layer.reinstRate) || 0) / 100;
+    const expectedUsage = limit > 0 ? Math.min(reinstNum, el / limit) : 0;
+    const expectedReinstPremium = grossPremium * reinstRate * expectedUsage;
+    const totalExpectedPremium = grossPremium + expectedReinstPremium;
+
+    return {
+      id: layer.id, label: layer.label, attachment, limit, exhaustion, el, stdev, cov,
+      lambda, expenseRatio, rolFloor,
+      riskLoad, technicalPremium, expenseAmount, grossPremium, floorBinding,
+      rol, multiple, payback, expectedReinstPremium, totalExpectedPremium
+    };
+  }
+
+  function computeTower() {
+    const computed = state.layers.map(l => computeLayer(l, state.assumptions));
+    const totalLimit = computed.reduce((s, l) => s + l.limit, 0);
+    const totalEL = computed.reduce((s, l) => s + l.el, 0);
+    const totalVar = computed.reduce((s, l) => s + l.stdev * l.stdev, 0);
+    const totalStdev = Math.sqrt(totalVar);
+    const totalGross = computed.reduce((s, l) => s + l.grossPremium, 0);
+    const totalRiskLoad = computed.reduce((s, l) => s + l.riskLoad, 0);
+    const totalExpense = computed.reduce((s, l) => s + l.expenseAmount, 0);
+    const totalReinst = computed.reduce((s, l) => s + l.expectedReinstPremium, 0);
+    const totalWithReinst = totalGross + totalReinst;
+    const blendedROL = totalLimit > 0 ? totalGross / totalLimit : null;
+    const blendedMultiple = totalEL > 0 ? totalGross / totalEL : null;
+    const blendedCoV = totalEL > 0 ? totalStdev / totalEL : null;
+    const blendedPayback = totalGross > 0 ? totalLimit / totalGross : null;
+    return {
+      layers: computed, totalLimit, totalEL, totalStdev, totalGross, totalRiskLoad,
+      totalExpense, totalReinst, totalWithReinst, blendedROL, blendedMultiple, blendedCoV, blendedPayback
+    };
+  }
+
+  // ---------- validation / warnings ----------
+  function computeWarnings() {
+    const warnings = [];
+    const sorted = [...state.layers].sort((a, b) => a.attachment - b.attachment);
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const cur = sorted[i], next = sorted[i + 1];
+      const curExhaust = Number(cur.attachment) + Number(cur.limit);
+      if (Math.abs(curExhaust - Number(next.attachment)) < 1e-9) continue;
+      if (curExhaust < next.attachment) {
+        warnings.push(`Gap in tower: "${cur.label}" exhausts at $${curExhaust}M but "${next.label}" attaches at $${next.attachment}M.`);
+      } else {
+        warnings.push(`Overlap in tower: "${cur.label}" exhausts at $${curExhaust}M, after "${next.label}" attaches at $${next.attachment}M.`);
+      }
+    }
+    state.layers.forEach(l => {
+      if (Number(l.el) > Number(l.limit) && Number(l.limit) > 0) {
+        warnings.push(`"${l.label}": expected loss ($${l.el}M) exceeds the layer limit ($${l.limit}M) — check inputs.`);
+      }
+      if (Number(l.limit) <= 0) warnings.push(`"${l.label}": limit must be greater than zero.`);
+    });
+    return warnings;
+  }
+
+  // ---------- rendering: assumptions ----------
+  function bindAssumptions() {
+    const nameEl = document.getElementById("tower-name");
+    nameEl.value = state.towerName;
+    nameEl.addEventListener("input", () => { state.towerName = nameEl.value; saveState(); });
+
+    const lambdaEl = document.getElementById("a-lambda");
+    lambdaEl.value = state.assumptions.lambda;
+    lambdaEl.addEventListener("input", () => { state.assumptions.lambda = Number(lambdaEl.value); recalcAndRender(); });
+
+    const expenseEl = document.getElementById("a-expense");
+    expenseEl.value = state.assumptions.expenseRatio;
+    expenseEl.addEventListener("input", () => { state.assumptions.expenseRatio = Number(expenseEl.value); recalcAndRender(); });
+
+    const floorEl = document.getElementById("a-floor");
+    floorEl.value = state.assumptions.rolFloor;
+    floorEl.addEventListener("input", () => { state.assumptions.rolFloor = Number(floorEl.value); recalcAndRender(); });
+  }
+
+  // ---------- rendering: layer editor ----------
+  function numField(value, onInput, opts) {
+    opts = opts || {};
+    const input = document.createElement("input");
+    input.type = "number";
+    input.step = opts.step || "0.01";
+    input.placeholder = opts.placeholder || "";
+    input.value = (value === null || value === undefined) ? "" : value;
+    input.addEventListener("input", () => onInput(input.value === "" ? (opts.allowEmpty ? null : 0) : input.value));
+    return input;
+  }
+
+  function renderLayerEditor() {
+    const tbody = document.getElementById("layer-tbody");
+    tbody.innerHTML = "";
+    state.layers.forEach((layer, idx) => {
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.className = "layer-name";
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.value = layer.label;
+      nameInput.addEventListener("input", () => { layer.label = nameInput.value; recalcAndRender(true); });
+      tdName.appendChild(nameInput);
+      tr.appendChild(tdName);
+
+      function addCell(value, onInput, opts) {
+        const td = document.createElement("td");
+        td.appendChild(numField(value, onInput, opts));
+        tr.appendChild(td);
+      }
+
+      addCell(layer.attachment, v => { layer.attachment = Number(v); recalcAndRender(); }, { step: "0.5" });
+      addCell(layer.limit, v => { layer.limit = Number(v); recalcAndRender(); }, { step: "0.5" });
+      addCell(layer.el, v => { layer.el = Number(v); recalcAndRender(); }, { step: "0.01" });
+      addCell(layer.stdev, v => { layer.stdev = Number(v); recalcAndRender(); }, { step: "0.01" });
+      addCell(layer.probAttach, v => { layer.probAttach = v === null ? null : Number(v); recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "—" });
+      addCell(layer.probExhaust, v => { layer.probExhaust = v === null ? null : Number(v); recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "—" });
+      addCell(layer.reinstNum, v => { layer.reinstNum = Number(v); recalcAndRender(); }, { step: "1" });
+      addCell(layer.reinstRate, v => { layer.reinstRate = Number(v); recalcAndRender(); }, { step: "5" });
+      addCell(layer.lambdaOverride, v => { layer.lambdaOverride = v; recalcAndRender(); }, { step: "0.01", allowEmpty: true, placeholder: "default" });
+      addCell(layer.expenseOverride, v => { layer.expenseOverride = v; recalcAndRender(); }, { step: "0.5", allowEmpty: true, placeholder: "default" });
+      addCell(layer.floorOverride, v => { layer.floorOverride = v; recalcAndRender(); }, { step: "0.1", allowEmpty: true, placeholder: "default" });
+
+      const tdActions = document.createElement("td");
+      tdActions.className = "col-actions";
+      const delBtn = document.createElement("button");
+      delBtn.className = "small danger";
+      delBtn.textContent = "✕";
+      delBtn.title = "Remove layer";
+      delBtn.addEventListener("click", () => {
+        state.layers.splice(idx, 1);
+        recalcAndRender(true);
+      });
+      tdActions.appendChild(delBtn);
+      tr.appendChild(tdActions);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ---------- rendering: KPIs ----------
+  function renderKPIs(tower) {
+    const row = document.getElementById("kpi-row");
+    const items = [
+      { label: "Total limit", value: fmtMoneyM(tower.totalLimit) },
+      { label: "Total expected loss", value: fmtMoneyM(tower.totalEL) },
+      { label: "Total gross premium", value: fmtMoneyM(tower.totalGross), sub: `incl. reinst.: ${fmtMoneyM(tower.totalWithReinst)}` },
+      { label: "Blended ROL", value: fmtPct(tower.blendedROL) },
+      { label: "Blended multiple of EL", value: tower.blendedMultiple === null ? "—" : fmtNum(tower.blendedMultiple, 2) + "x" },
+      { label: "Blended payback", value: tower.blendedPayback === null ? "—" : fmtNum(tower.blendedPayback, 1) + " yrs" }
+    ];
+    row.innerHTML = "";
+    items.forEach(it => {
+      const div = document.createElement("div");
+      div.className = "kpi";
+      div.innerHTML = `<div class="label">${it.label}</div><div class="value">${it.value}</div>${it.sub ? `<div class="sub">${it.sub}</div>` : ""}`;
+      row.appendChild(div);
+    });
+  }
+
+  // ---------- rendering: results table ----------
+  function renderResults(tower) {
+    const tbody = document.getElementById("results-tbody");
+    tbody.innerHTML = "";
+    tower.layers.forEach(l => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="text-align:left;">${escapeHtml(l.label)}${l.floorBinding ? '<span class="badge floor" title="Minimum ROL floor is binding for this layer">floor</span>' : ""}</td>
+        <td>${fmtMoneyM(l.attachment)} &ndash; ${fmtMoneyM(l.exhaustion)}</td>
+        <td>${l.cov === null ? "—" : fmtNum(l.cov, 2)}</td>
+        <td>${fmtMoneyM(l.riskLoad)}</td>
+        <td>${fmtMoneyM(l.technicalPremium)}</td>
+        <td>${fmtMoneyM(l.grossPremium)}</td>
+        <td>${fmtPct(l.rol)}</td>
+        <td>${l.multiple === null ? "—" : fmtNum(l.multiple, 2) + "x"}</td>
+        <td>${l.payback === null ? "—" : fmtNum(l.payback, 1)}</td>
+        <td>${fmtMoneyM(l.expectedReinstPremium)}</td>
+        <td>${fmtMoneyM(l.totalExpectedPremium)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    const tfoot = document.getElementById("results-tfoot");
+    tfoot.innerHTML = `
+      <tr style="font-weight:650; border-top: 1px solid var(--border-strong);">
+        <td style="text-align:left;">Tower total</td>
+        <td>${fmtMoneyM(tower.totalLimit)} limit</td>
+        <td>${tower.blendedCoV === null ? "—" : fmtNum(tower.blendedCoV, 2)}</td>
+        <td>${fmtMoneyM(tower.totalRiskLoad)}</td>
+        <td>${fmtMoneyM(tower.totalEL + tower.totalRiskLoad)}</td>
+        <td>${fmtMoneyM(tower.totalGross)}</td>
+        <td>${fmtPct(tower.blendedROL)}</td>
+        <td>${tower.blendedMultiple === null ? "—" : fmtNum(tower.blendedMultiple, 2) + "x"}</td>
+        <td>${tower.blendedPayback === null ? "—" : fmtNum(tower.blendedPayback, 1)}</td>
+        <td>${fmtMoneyM(tower.totalReinst)}</td>
+        <td>${fmtMoneyM(tower.totalWithReinst)}</td>
+      </tr>
+    `;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // ---------- rendering: warnings ----------
+  function renderWarnings() {
+    const area = document.getElementById("warn-area");
+    const warnings = computeWarnings();
+    if (warnings.length === 0) { area.innerHTML = ""; return; }
+    area.innerHTML = `<div class="warn-banner">&#9888;<div>${warnings.map(escapeHtml).join("<br/>")}</div></div>`;
+  }
+
+  // ---------- tooltip ----------
+  const tooltip = document.getElementById("tooltip");
+  function showTooltip(evt, titleText, rows) {
+    tooltip.innerHTML = `<div class="t-title">${escapeHtml(titleText)}</div>` +
+      rows.map(r => `<div class="t-row"><span>${escapeHtml(r[0])}</span><b>${escapeHtml(r[1])}</b></div>`).join("");
+    tooltip.style.opacity = "1";
+    moveTooltip(evt);
+  }
+  function moveTooltip(evt) {
+    const pad = 14;
+    let x = evt.clientX + pad, y = evt.clientY + pad;
+    const rect = tooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = evt.clientX - rect.width - pad;
+    if (y + rect.height > window.innerHeight) y = evt.clientY - rect.height - pad;
+    tooltip.style.left = x + "px";
+    tooltip.style.top = y + "px";
+  }
+  function hideTooltip() { tooltip.style.opacity = "0"; }
+
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  // ---------- chart: tower structure ----------
+  function renderTowerChart(tower) {
+    const container = document.getElementById("chart-tower");
+    container.innerHTML = "";
+    const layers = tower.layers;
+    if (layers.length === 0) { container.textContent = "Add a layer to see the tower diagram."; return; }
+
+    const W = Math.max(420, layers.length * 110);
+    const H = 340;
+    const marginL = 56, marginR = 16, marginT = 28, marginB = 40;
+    const plotW = W - marginL - marginR;
+    const plotH = H - marginT - marginB;
+
+    const maxVal = Math.max(...layers.map(l => l.exhaustion), 1);
+    const yScale = v => marginT + plotH - (Math.sqrt(Math.max(v, 0)) / Math.sqrt(maxVal)) * plotH;
+
+    const rols = layers.map(l => l.rol || 0);
+    const minROL = Math.min(...rols), maxROL = Math.max(...rols);
+    function colorFor(rol) {
+      const t = maxROL > minROL ? (rol - minROL) / (maxROL - minROL) : 0.5;
+      const idx = Math.round(t * (SEQ_STEPS.length - 1));
+      return SEQ_STEPS[idx];
+    }
+
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Tower structure chart" });
+
+    // gridlines + y ticks (nice $ values across sqrt scale)
+    const niceTicks = pickTicks(maxVal);
+    niceTicks.forEach(t => {
+      const y = yScale(t);
+      svg.appendChild(svgEl("line", { x1: marginL, x2: W - marginR, y1: y, y2: y, class: "grid-line" }));
+      const label = svgEl("text", { x: marginL - 8, y: y + 3, "text-anchor": "end", class: "muted" });
+      label.textContent = fmtMoneyM(t);
+      svg.appendChild(label);
+    });
+    svg.appendChild(svgEl("line", { x1: marginL, x2: marginL, y1: marginT, y2: marginT + plotH, class: "axis-line" }));
+
+    const bw = Math.min(48, plotW / layers.length * 0.55);
+    layers.forEach((l, i) => {
+      const cx = marginL + (i + 0.5) * (plotW / layers.length);
+      const yTop = yScale(l.exhaustion);
+      const yBot = yScale(l.attachment);
+      const rect = svgEl("rect", {
+        x: cx - bw / 2, y: yTop, width: bw, height: Math.max(2, yBot - yTop),
+        rx: 4, ry: 4, fill: colorFor(l.rol || 0)
+      });
+      rect.addEventListener("mousemove", e => moveTooltip(e));
+      rect.addEventListener("mouseenter", e => showTooltip(e, l.label, [
+        ["Attach – Exhaust", `${fmtMoneyM(l.attachment)} – ${fmtMoneyM(l.exhaustion)}`],
+        ["Limit", fmtMoneyM(l.limit)],
+        ["Expected loss", fmtMoneyM(l.el)],
+        ["ROL", fmtPct(l.rol)],
+        ["Gross premium", fmtMoneyM(l.grossPremium)]
+      ]));
+      rect.addEventListener("mouseleave", hideTooltip);
+      svg.appendChild(rect);
+
+      const rolLabel = svgEl("text", { x: cx, y: yTop - 8, "text-anchor": "middle", style: "font-weight:650;" });
+      rolLabel.setAttribute("fill", "var(--text-primary)");
+      rolLabel.textContent = fmtPct(l.rol, 1);
+      svg.appendChild(rolLabel);
+
+      const nameLabel = svgEl("text", { x: cx, y: H - marginB + 16, "text-anchor": "middle", class: "muted" });
+      nameLabel.textContent = l.label.length > 12 ? l.label.slice(0, 11) + "…" : l.label;
+      svg.appendChild(nameLabel);
+    });
+
+    container.appendChild(svg);
+  }
+
+  function pickTicks(maxVal) {
+    const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000];
+    let step = steps.find(s => maxVal / s <= 5) || Math.ceil(maxVal / 5);
+    const ticks = [];
+    for (let v = 0; v <= maxVal * 1.02; v += step) ticks.push(v);
+    if (ticks.length < 2) ticks.push(maxVal);
+    return ticks;
+  }
+
+  // ---------- chart: premium composition (stacked) ----------
+  function renderCompositionChart(tower) {
+    const container = document.getElementById("chart-composition");
+    const legendEl = document.getElementById("composition-legend");
+    container.innerHTML = "";
+    const layers = tower.layers;
+    if (layers.length === 0) { container.textContent = "Add a layer to see premium composition."; legendEl.innerHTML = ""; return; }
+
+    const W = Math.max(420, layers.length * 110);
+    const H = 340;
+    const marginL = 60, marginR = 16, marginT = 20, marginB = 40;
+    const plotW = W - marginL - marginR;
+    const plotH = H - marginT - marginB;
+
+    const totals = layers.map(l => l.grossPremium);
+    const maxTotal = Math.max(...totals, 0.01);
+    const ticks = pickTicks(maxTotal);
+    const yScale = v => marginT + plotH - (v / (ticks[ticks.length - 1] || maxTotal)) * plotH;
+
+    const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Premium composition chart" });
+
+    ticks.forEach(t => {
+      const y = yScale(t);
+      svg.appendChild(svgEl("line", { x1: marginL, x2: W - marginR, y1: y, y2: y, class: "grid-line" }));
+      const label = svgEl("text", { x: marginL - 8, y: y + 3, "text-anchor": "end", class: "muted" });
+      label.textContent = fmtMoneyM(t);
+      svg.appendChild(label);
+    });
+    svg.appendChild(svgEl("line", { x1: marginL, x2: W - marginR, y1: yScale(0), y2: yScale(0), class: "axis-line" }));
+
+    const bw = Math.min(44, plotW / layers.length * 0.55);
+    const gap = 2;
+    const colors = { el: "var(--series-1)", risk: "var(--series-2)", exp: "var(--series-3)" };
+
+    layers.forEach((l, i) => {
+      const cx = marginL + (i + 0.5) * (plotW / layers.length);
+      const x0 = cx - bw / 2;
+      const segs = [
+        { key: "el", value: l.el, label: "Expected loss", color: colors.el },
+        { key: "risk", value: l.riskLoad, label: "Risk load", color: colors.risk },
+        { key: "exp", value: l.expenseAmount, label: "Expense load", color: colors.exp }
+      ];
+      let cumulative = 0;
+      segs.forEach((seg, si) => {
+        const yTopVal = cumulative + Math.max(seg.value, 0);
+        const yTop = yScale(yTopVal);
+        const yBase = yScale(cumulative);
+        let h = Math.max(0, yBase - yTop - (si < segs.length - 1 ? gap : 0));
+        const isLast = si === segs.length - 1;
+        const rect = svgEl("rect", {
+          x: x0, y: yTop, width: bw, height: Math.max(0, h),
+          fill: seg.color,
+          rx: isLast ? 4 : 0, ry: isLast ? 4 : 0
+        });
+        rect.addEventListener("mousemove", e => moveTooltip(e));
+        rect.addEventListener("mouseenter", e => showTooltip(e, `${l.label} — ${seg.label}`, [
+          ["Amount", fmtMoneyM(seg.value)],
+          ["Gross premium", fmtMoneyM(l.grossPremium)]
+        ]));
+        rect.addEventListener("mouseleave", hideTooltip);
+        svg.appendChild(rect);
+        cumulative += Math.max(seg.value, 0);
+      });
+
+      const totalLabel = svgEl("text", { x: cx, y: yScale(cumulative) - 8, "text-anchor": "middle", style: "font-weight:650;" });
+      totalLabel.setAttribute("fill", "var(--text-primary)");
+      totalLabel.textContent = fmtMoneyM(l.grossPremium);
+      svg.appendChild(totalLabel);
+
+      const nameLabel = svgEl("text", { x: cx, y: H - marginB + 16, "text-anchor": "middle", class: "muted" });
+      nameLabel.textContent = l.label.length > 12 ? l.label.slice(0, 11) + "…" : l.label;
+      svg.appendChild(nameLabel);
+    });
+
+    container.appendChild(svg);
+    legendEl.innerHTML = `
+      <span class="item"><span class="swatch" style="background:var(--series-1)"></span>Expected loss</span>
+      <span class="item"><span class="swatch" style="background:var(--series-2)"></span>Risk load</span>
+      <span class="item"><span class="swatch" style="background:var(--series-3)"></span>Expense load</span>
+    `;
+  }
+
+  // ---------- orchestration ----------
+  function recalcAndRender(structural) {
+    saveState();
+    const tower = computeTower();
+    renderWarnings();
+    renderKPIs(tower);
+    renderResults(tower);
+    renderTowerChart(tower);
+    renderCompositionChart(tower);
+    if (structural) renderLayerEditor();
+  }
+
+  function fullRender() {
+    bindAssumptions();
+    renderLayerEditor();
+    recalcAndRender(false);
+  }
+
+  // ---------- toolbar actions ----------
+  document.getElementById("btn-add-layer").addEventListener("click", () => {
+    const last = state.layers[state.layers.length - 1];
+    const attach = last ? last.attachment + last.limit : 0;
+    state.layers.push(defaultLayer({ label: `Layer ${state.layers.length + 1}`, attachment: attach, limit: 10, el: 0.1, stdev: 0.2 }));
+    recalcAndRender(true);
+  });
+
+  document.getElementById("btn-sort-layers").addEventListener("click", () => {
+    state.layers.sort((a, b) => a.attachment - b.attachment);
+    recalcAndRender(true);
+  });
+
+  document.getElementById("btn-example").addEventListener("click", () => {
+    if (!confirm("Load the example tower? This will replace your current layers and assumptions.")) return;
+    state = exampleState();
+    fullRender();
+  });
+
+  document.getElementById("btn-new").addEventListener("click", () => {
+    if (!confirm("Start a new blank tower? This will replace your current layers and assumptions.")) return;
+    state = emptyState();
+    fullRender();
+  });
+
+  document.getElementById("btn-export").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (state.towerName || "cat-xl-tower").replace(/[^a-z0-9\-_ ]/gi, "").trim().replace(/\s+/g, "-") + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("btn-import").addEventListener("click", () => {
+    document.getElementById("file-import").click();
+  });
+  document.getElementById("file-import").addEventListener("change", evt => {
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed || !Array.isArray(parsed.layers)) throw new Error("Invalid tower file");
+        parsed.layers.forEach(l => { if (!l.id) l.id = uid(); });
+        state = parsed;
+        fullRender();
+      } catch (e) {
+        alert("Could not import that file: " + e.message);
+      }
+    };
+    reader.readAsText(file);
+    evt.target.value = "";
+  });
+
+  document.getElementById("btn-print").addEventListener("click", () => window.print());
+
+  fullRender();
+})();
+</script>
+</body>
+</html>
