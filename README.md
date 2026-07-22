@@ -33,6 +33,24 @@ Holding MSD flat year-over-year is what makes this a **risk-adjusted flat** repr
 
 All monetary layer inputs (attachment, limit, new expected loss, new standard deviation) are in **$ millions**, matching how towers are typically quoted in the market (e.g. "$10M xs $10M"). New expected loss and standard deviation should come from this year's catastrophe model output for each layer. Expiring ROL and expiring MSD come from the expiring placement.
 
+## Interpolating a layer
+
+The **Interpolate a layer** card lets you estimate a price for a layer you haven't modeled, by curve-fitting between two layers you have already priced:
+
+1. Enter the new layer's attachment and limit.
+2. The tool auto-selects the nearest priced layer below and above it as anchors (or pick your own from the dropdowns).
+3. It fits a curve through the anchors' New RA Flat ROL, against each layer's position (attachment + half its limit) in the tower, and reads off a rate at the new layer's position.
+4. Click **Add to tower** to insert it as a real layer.
+
+Two interpolation methods are available:
+
+- **Log-linear (recommended)** — assumes ROL decays roughly exponentially as attachment rises, the typical shape of a cat layer pricing curve.
+- **Linear** — a straight line between the two anchor points.
+
+If the new layer's position falls outside the two anchors, the tool is extrapolating rather than interpolating and flags this clearly — treat those results with more caution.
+
+An interpolated layer has no expiring comparison (it wasn't part of last year's placement), so it's shown with an **interpolated** badge, its expiring columns show "—", and it's counted in total limit/premium but excluded from the blended expiring ROL, blended new ROL, and blended rate-change figures — so the renewal comparison stays like-for-like.
+
 ## What this is not
 
 This is a lightweight renewal repricing calculator, not a full actuarial or catastrophe modeling platform. It does not derive MSD for you, does not simulate loss distributions, and does not replace judgment on market cycle, capacity, or counterparty considerations. Use it to get to a fast, defensible risk-adjusted flat technical price at renewal — not as a substitute for full model output analysis.

@@ -110,7 +110,13 @@
     border: 1px solid var(--border-strong); border-radius: 6px;
     padding: 5px 6px; width: 100%; text-align: right;
   }
-  input:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
+  select {
+    font-family: inherit; font-size: 12.5px;
+    background: var(--input-bg); color: var(--text-primary);
+    border: 1px solid var(--border-strong); border-radius: 6px;
+    padding: 6px 8px; width: 100%;
+  }
+  input:focus, select:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
 
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th, td { padding: 7px 8px; text-align: right; white-space: nowrap; }
@@ -125,12 +131,32 @@
   tbody tr:hover { background: color-mix(in srgb, var(--series-1) 6%, transparent); }
   td.layer-name { min-width: 108px; }
   td.layer-name input { text-align: left; font-weight: 550; min-width: 100px; }
+  td.layer-name .layer-name-wrap { display: flex; align-items: center; gap: 6px; min-width: 190px; }
+  td.layer-name .layer-name-wrap input { flex: 1; min-width: 110px; }
+  td.dash-cell { color: var(--text-muted); text-align: right; }
   .editor-wrap, .results-wrap { overflow-x: auto; }
   .col-actions { width: 34px; }
 
   .rate-up { color: var(--critical); font-weight: 600; }
   .rate-down { color: var(--good); font-weight: 600; }
   .rate-flat { color: var(--text-muted); }
+
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 1px 6px; border-radius: 10px; white-space: nowrap;
+  }
+  .badge-interp { background: color-mix(in srgb, var(--series-2) 22%, transparent); color: var(--text-primary); }
+
+  .interp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 16px; margin-bottom: 14px; }
+  .interp-result {
+    display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: flex-start;
+    background: color-mix(in srgb, var(--series-2) 6%, transparent);
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px;
+  }
+  .interp-result .stat .label { font-size: 11px; color: var(--text-secondary); margin-bottom: 3px; }
+  .interp-result .stat .value { font-size: 17px; font-weight: 650; }
+  .interp-note { font-size: 11.5px; color: var(--text-muted); flex-basis: 100%; }
+  .interp-note.warn { color: var(--critical); }
 
   .warn-banner {
     display: flex; gap: 8px; align-items: flex-start;
@@ -265,6 +291,13 @@
   </div>
 
   <div class="card">
+    <h2>Interpolate a layer</h2>
+    <p style="font-size:12.5px; color:var(--text-secondary); margin:-6px 0 14px;">Estimate a risk-adjusted flat price for a layer you haven't modeled, by curve-fitting rate on line between two layers you have already priced.</p>
+    <div id="interp-form"></div>
+    <div id="interp-result"></div>
+  </div>
+
+  <div class="card">
     <details class="methodology">
       <summary>Methodology &amp; formulas</summary>
       <ul>
@@ -274,6 +307,8 @@
         <li><code>Rate Change = New RA Flat ROL / Expiring ROL &minus; 1</code></li>
       </ul>
       <p><strong>Margin on Standard Deviation (MSD)</strong> is the risk margin per unit of loss standard deviation implied by (or agreed for) the expiring placement: <code>(Expiring Premium &minus; Expiring Expected Loss) / Expiring Standard Deviation</code>. Enter it directly per layer &mdash; from the prior year's pricing file, a market benchmark, or your own calculation. Holding MSD flat year-over-year is what makes this a "risk-adjusted flat" reprice: any change in the resulting rate on line is driven purely by the change in modeled expected loss and standard deviation, not by a change in risk appetite.</p>
+      <h3 style="font-size:12.5px; color:var(--text-primary); margin:14px 0 4px;">Layer interpolation</h3>
+      <p>Given two already-priced layers, the interpolation tool fits a curve through their New RA Flat rate on line against each layer's position (attachment plus half its limit) in the tower, then reads off a rate at the position of the layer you're pricing. <strong>Log-linear</strong> (the default) assumes ROL decays roughly exponentially as attachment rises &mdash; the typical shape of a cat layer pricing curve &mdash; and is usually the better fit; <strong>linear</strong> is a straight line between the two points. If the new layer's position falls outside the two anchor layers, the tool is extrapolating rather than interpolating, and flags this so you can apply extra judgment. An interpolated layer added to the tower has no expiring comparison, so it's excluded from the rate-change columns and shown with an "interpolated" badge.</p>
     </details>
   </div>
 
@@ -330,6 +365,14 @@
 
   let state = loadState();
 
+  let interpForm = {
+    label: "Interpolated Layer",
+    attachment: null, limit: null,
+    method: "log",
+    lowerId: null, upperId: null,
+    anchorsAuto: true
+  };
+
   function saveState() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
   }
@@ -362,6 +405,17 @@
     const attachment = Number(layer.attachment) || 0;
     const limit = Number(layer.limit) || 0;
     const exhaustion = attachment + limit;
+
+    if (layer.interpolated) {
+      const newRAFlatROL = Number(layer.interpolatedROL) || 0; // fraction
+      const newRAFlatPremium = newRAFlatROL * limit;
+      return {
+        id: layer.id, label: layer.label, attachment, limit, exhaustion, interpolated: true,
+        expiringROL: null, expiringMSD: null, newEL: null, newVolatility: null,
+        expiringPremium: null, newRAFlatPremium, newRAFlatROL, rateChange: null
+      };
+    }
+
     const expiringROL = Number(layer.expiringROL) || 0; // stored as a percent number, e.g. 5.25 = 5.25%
     const expiringMSD = Number(layer.expiringMSD) || 0;
     const newEL = Number(layer.newEL) || 0;
@@ -373,7 +427,7 @@
     const rateChange = (expiringROL > 0 && newRAFlatROL !== null) ? (newRAFlatROL / (expiringROL / 100)) - 1 : null;
 
     return {
-      id: layer.id, label: layer.label, attachment, limit, exhaustion,
+      id: layer.id, label: layer.label, attachment, limit, exhaustion, interpolated: false,
       expiringROL, expiringMSD, newEL, newVolatility,
       expiringPremium, newRAFlatPremium, newRAFlatROL, rateChange
     };
@@ -382,13 +436,21 @@
   function computeTower() {
     const computed = state.layers.map(l => computeLayer(l));
     const totalLimit = computed.reduce((s, l) => s + l.limit, 0);
-    const totalExpiringPremium = computed.reduce((s, l) => s + l.expiringPremium, 0);
     const totalNewPremium = computed.reduce((s, l) => s + l.newRAFlatPremium, 0);
-    const blendedExpiringROL = totalLimit > 0 ? totalExpiringPremium / totalLimit : null;
-    const blendedNewROL = totalLimit > 0 ? totalNewPremium / totalLimit : null;
+    const interpCount = computed.filter(l => l.interpolated).length;
+
+    // Blended ROL / rate change are a like-for-like renewal comparison, so
+    // interpolated layers (no expiring premium) are excluded from them —
+    // they'd otherwise look like a rate increase from $0.
+    const renewalLayers = computed.filter(l => !l.interpolated);
+    const renewalLimit = renewalLayers.reduce((s, l) => s + l.limit, 0);
+    const totalExpiringPremium = renewalLayers.reduce((s, l) => s + (l.expiringPremium || 0), 0);
+    const renewalNewPremium = renewalLayers.reduce((s, l) => s + l.newRAFlatPremium, 0);
+    const blendedExpiringROL = renewalLimit > 0 ? totalExpiringPremium / renewalLimit : null;
+    const blendedNewROL = renewalLimit > 0 ? renewalNewPremium / renewalLimit : null;
     const blendedRateChange = (blendedExpiringROL !== null && blendedExpiringROL > 0 && blendedNewROL !== null)
       ? (blendedNewROL / blendedExpiringROL) - 1 : null;
-    return { layers: computed, totalLimit, totalExpiringPremium, totalNewPremium, blendedExpiringROL, blendedNewROL, blendedRateChange };
+    return { layers: computed, totalLimit, totalExpiringPremium, totalNewPremium, blendedExpiringROL, blendedNewROL, blendedRateChange, interpCount };
   }
 
   // ---------- validation / warnings ----------
@@ -406,11 +468,15 @@
       }
     }
     state.layers.forEach(l => {
-      if (Number(l.newEL) > Number(l.limit) && Number(l.limit) > 0) {
+      if (!l.interpolated && Number(l.newEL) > Number(l.limit) && Number(l.limit) > 0) {
         warnings.push(`"${l.label}": new expected loss ($${l.newEL}M) exceeds the layer limit ($${l.limit}M) — check inputs.`);
       }
       if (Number(l.limit) <= 0) warnings.push(`"${l.label}": limit must be greater than zero.`);
     });
+    const interpCount = state.layers.filter(l => l.interpolated).length;
+    if (interpCount > 0) {
+      warnings.push(`${interpCount} layer${interpCount > 1 ? "s are" : " is"} priced by interpolation, not modeled data — ${interpCount > 1 ? "they have" : "it has"} no expiring comparison, so ${interpCount > 1 ? "they're" : "it's"} counted in total limit/premium but excluded from the blended expiring ROL, new ROL, and rate-change figures.`);
+    }
     return warnings;
   }
 
@@ -440,11 +506,20 @@
 
       const tdName = document.createElement("td");
       tdName.className = "layer-name";
+      const nameWrap = document.createElement("div");
+      nameWrap.className = "layer-name-wrap";
       const nameInput = document.createElement("input");
       nameInput.type = "text";
       nameInput.value = layer.label;
       nameInput.addEventListener("input", () => { layer.label = nameInput.value; recalcAndRender(true); });
-      tdName.appendChild(nameInput);
+      nameWrap.appendChild(nameInput);
+      if (layer.interpolated) {
+        const badge = document.createElement("span");
+        badge.className = "badge badge-interp";
+        badge.textContent = "interpolated";
+        nameWrap.appendChild(badge);
+      }
+      tdName.appendChild(nameWrap);
       tr.appendChild(tdName);
 
       function addCell(value, onInput, opts) {
@@ -452,13 +527,23 @@
         td.appendChild(numField(value, onInput, opts));
         tr.appendChild(td);
       }
+      function addDashCell() {
+        const td = document.createElement("td");
+        td.className = "dash-cell";
+        td.textContent = "—";
+        tr.appendChild(td);
+      }
 
       addCell(layer.attachment, v => { layer.attachment = v; recalcAndRender(); }, { step: "0.5" });
       addCell(layer.limit, v => { layer.limit = v; recalcAndRender(); }, { step: "0.5" });
-      addCell(layer.expiringROL, v => { layer.expiringROL = v; recalcAndRender(); }, { step: "0.1" });
-      addCell(layer.expiringMSD, v => { layer.expiringMSD = v; recalcAndRender(); }, { step: "0.01" });
-      addCell(layer.newEL, v => { layer.newEL = v; recalcAndRender(); }, { step: "0.01" });
-      addCell(layer.newVolatility, v => { layer.newVolatility = v; recalcAndRender(); }, { step: "0.01" });
+      if (layer.interpolated) {
+        addDashCell(); addDashCell(); addDashCell(); addDashCell();
+      } else {
+        addCell(layer.expiringROL, v => { layer.expiringROL = v; recalcAndRender(); }, { step: "0.1" });
+        addCell(layer.expiringMSD, v => { layer.expiringMSD = v; recalcAndRender(); }, { step: "0.01" });
+        addCell(layer.newEL, v => { layer.newEL = v; recalcAndRender(); }, { step: "0.01" });
+        addCell(layer.newVolatility, v => { layer.newVolatility = v; recalcAndRender(); }, { step: "0.01" });
+      }
 
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
@@ -480,13 +565,14 @@
   // ---------- rendering: KPIs ----------
   function renderKPIs(tower) {
     const row = document.getElementById("kpi-row");
+    const interpNote = tower.interpCount > 0 ? "excl. interpolated" : null;
     const items = [
       { label: "Total limit", value: fmtMoneyM(tower.totalLimit) },
-      { label: "Total expiring premium", value: fmtMoneyM(tower.totalExpiringPremium) },
+      { label: "Total expiring premium", value: fmtMoneyM(tower.totalExpiringPremium), sub: interpNote },
       { label: "Total new RA Flat premium", value: fmtMoneyM(tower.totalNewPremium) },
-      { label: "Blended expiring ROL", value: fmtPctFraction(tower.blendedExpiringROL) },
-      { label: "Blended new RA Flat ROL", value: fmtPctFraction(tower.blendedNewROL) },
-      { label: "Blended rate change", value: fmtSignedPct(tower.blendedRateChange) }
+      { label: "Blended expiring ROL", value: fmtPctFraction(tower.blendedExpiringROL), sub: interpNote },
+      { label: "Blended new RA Flat ROL", value: fmtPctFraction(tower.blendedNewROL), sub: interpNote },
+      { label: "Blended rate change", value: fmtSignedPct(tower.blendedRateChange), sub: interpNote }
     ];
     row.innerHTML = "";
     items.forEach(it => {
@@ -511,7 +597,7 @@
     tower.layers.forEach(l => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="text-align:left;">${escapeHtml(l.label)}</td>
+        <td style="text-align:left;">${escapeHtml(l.label)}${l.interpolated ? ' <span class="badge badge-interp">interpolated</span>' : ""}</td>
         <td>${fmtMoneyM(l.attachment)} &ndash; ${fmtMoneyM(l.exhaustion)}</td>
         <td>${fmtPctNumber(l.expiringROL)}</td>
         <td>${fmtMoneyM(l.expiringPremium)}</td>
@@ -597,7 +683,7 @@
     const plotW = W - marginL - marginR;
     const plotH = H - marginT - marginB;
 
-    const maxVal = Math.max(...layers.map(l => l.expiringROL), ...layers.map(l => (l.newRAFlatROL || 0) * 100), 1);
+    const maxVal = Math.max(...layers.map(l => l.expiringROL || 0), ...layers.map(l => (l.newRAFlatROL || 0) * 100), 1);
     const ticks = pickTicks(maxVal);
     const yMax = ticks[ticks.length - 1] || maxVal;
     const yScale = v => marginT + plotH - (v / yMax) * plotH;
@@ -623,14 +709,16 @@
       const xNew = groupCenter + gap / 2;
       const newROLPct = (l.newRAFlatROL || 0) * 100;
 
-      const barExp = svgEl("rect", {
-        x: xExp, y: yScale(l.expiringROL), width: barW, height: Math.max(1, yScale(0) - yScale(l.expiringROL)),
-        rx: 4, ry: 4, fill: "var(--series-1)"
-      });
-      barExp.addEventListener("mousemove", e => moveTooltip(e));
-      barExp.addEventListener("mouseenter", e => showTooltip(e, `${l.label} — Expiring`, [["ROL", fmtPctNumber(l.expiringROL)], ["Premium", fmtMoneyM(l.expiringPremium)]]));
-      barExp.addEventListener("mouseleave", hideTooltip);
-      svg.appendChild(barExp);
+      if (!l.interpolated) {
+        const barExp = svgEl("rect", {
+          x: xExp, y: yScale(l.expiringROL), width: barW, height: Math.max(1, yScale(0) - yScale(l.expiringROL)),
+          rx: 4, ry: 4, fill: "var(--series-1)"
+        });
+        barExp.addEventListener("mousemove", e => moveTooltip(e));
+        barExp.addEventListener("mouseenter", e => showTooltip(e, `${l.label} — Expiring`, [["ROL", fmtPctNumber(l.expiringROL)], ["Premium", fmtMoneyM(l.expiringPremium)]]));
+        barExp.addEventListener("mouseleave", hideTooltip);
+        svg.appendChild(barExp);
+      }
 
       const barNew = svgEl("rect", {
         x: xNew, y: yScale(newROLPct), width: barW, height: Math.max(1, yScale(0) - yScale(newROLPct)),
@@ -653,8 +741,215 @@
     `;
   }
 
+  // ---------- layer interpolation ----------
+  function midOf(l) { return l.attachment + l.limit / 2; }
+
+  function pickDefaultAnchors(candidates, targetMid) {
+    const sorted = [...candidates].sort((a, b) => midOf(a) - midOf(b));
+    if (sorted.length < 2) return { lower: sorted[0], upper: sorted[0] };
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (midOf(sorted[i]) <= targetMid && targetMid <= midOf(sorted[i + 1])) {
+        return { lower: sorted[i], upper: sorted[i + 1] };
+      }
+    }
+    if (targetMid < midOf(sorted[0])) return { lower: sorted[0], upper: sorted[1] };
+    return { lower: sorted[sorted.length - 2], upper: sorted[sorted.length - 1] };
+  }
+
+  function computeInterpolation(lower, upper, targetAttachment, targetLimit, method) {
+    const x1 = midOf(lower), x2 = midOf(upper);
+    const xt = targetAttachment + targetLimit / 2;
+    const y1 = lower.newRAFlatROL, y2 = upper.newRAFlatROL;
+    if (x2 === x1 || y1 === null || y2 === null) return null;
+    const t = (xt - x1) / (x2 - x1);
+    let rol, usedMethod = method;
+    if (method === "log" && y1 > 0 && y2 > 0) {
+      const ln1 = Math.log(y1), ln2 = Math.log(y2);
+      rol = Math.exp(ln1 + t * (ln2 - ln1));
+    } else {
+      usedMethod = "linear";
+      rol = y1 + t * (y2 - y1);
+    }
+    return { rol: Math.max(0, rol), t, extrapolated: t < 0 || t > 1, usedMethod, x1, x2, xt };
+  }
+
+  function interpCandidates(tower) {
+    return tower.layers.filter(l => !l.interpolated).slice().sort((a, b) => a.attachment - b.attachment);
+  }
+
+  function resolveInterpAnchors(candidates) {
+    const targetMid = Number(interpForm.attachment || 0) + Number(interpForm.limit || 0) / 2;
+    if (interpForm.anchorsAuto || !candidates.some(c => c.id === interpForm.lowerId) || !candidates.some(c => c.id === interpForm.upperId)) {
+      const picked = pickDefaultAnchors(candidates, targetMid);
+      interpForm.lowerId = picked.lower.id;
+      interpForm.upperId = picked.upper.id;
+    }
+    let anchorA = candidates.find(c => c.id === interpForm.lowerId) || candidates[0];
+    let anchorB = candidates.find(c => c.id === interpForm.upperId) || candidates[1];
+    let mathLower = anchorA, mathUpper = anchorB;
+    if (midOf(mathLower) > midOf(mathUpper)) { const t = mathLower; mathLower = mathUpper; mathUpper = t; }
+    return { anchorA, anchorB, mathLower, mathUpper };
+  }
+
+  function interpTextField(labelText, value, onInput) {
+    const wrap = document.createElement("div");
+    const label = document.createElement("label");
+    label.textContent = labelText;
+    wrap.appendChild(label);
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = value;
+    input.addEventListener("input", () => onInput(input.value));
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  function interpNumField(labelText, value, onInput, step) {
+    const wrap = document.createElement("div");
+    const label = document.createElement("label");
+    label.textContent = labelText;
+    wrap.appendChild(label);
+    wrap.appendChild(numField(value, onInput, { step: step || "0.5" }));
+    return wrap;
+  }
+
+  function interpSelectField(labelText, value, options, onChange) {
+    const wrap = document.createElement("div");
+    const label = document.createElement("label");
+    label.textContent = labelText;
+    wrap.appendChild(label);
+    const select = document.createElement("select");
+    options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt.value;
+      o.textContent = opt.text;
+      if (opt.value === value) o.selected = true;
+      select.appendChild(o);
+    });
+    select.addEventListener("change", () => onChange(select.value));
+    wrap.appendChild(select);
+    return wrap;
+  }
+
+  function renderInterpolationForm(tower) {
+    const formDiv = document.getElementById("interp-form");
+    formDiv.innerHTML = "";
+    const candidates = interpCandidates(tower);
+
+    if (candidates.length < 2) {
+      const p = document.createElement("p");
+      p.style.cssText = "font-size:12.5px; color:var(--text-muted);";
+      p.textContent = "Add at least two priced layers (with expiring ROL/MSD and new expected loss/std dev) to the tower before interpolating.";
+      formDiv.appendChild(p);
+      return;
+    }
+
+    if (interpForm.attachment === null || interpForm.limit === null) {
+      const mid = candidates[Math.floor(candidates.length / 2)];
+      interpForm.attachment = mid.exhaustion;
+      interpForm.limit = mid.limit;
+    }
+
+    const { anchorA, anchorB } = resolveInterpAnchors(candidates);
+
+    const grid = document.createElement("div");
+    grid.className = "interp-grid";
+    grid.appendChild(interpTextField("New layer name", interpForm.label, v => { interpForm.label = v; }));
+    grid.appendChild(interpNumField("Attachment ($M)", interpForm.attachment, v => { interpForm.attachment = v; recalcAndRender(false, true); }, "0.5"));
+    grid.appendChild(interpNumField("Limit ($M)", interpForm.limit, v => { interpForm.limit = v; recalcAndRender(false, true); }, "0.5"));
+    grid.appendChild(interpSelectField("Interpolation method", interpForm.method, [
+      { value: "log", text: "Log-linear (recommended)" },
+      { value: "linear", text: "Linear" }
+    ], v => { interpForm.method = v; recalcAndRender(false, true); }));
+
+    const anchorOptions = candidates.map(c => ({ value: c.id, text: `${c.label} (${fmtMoneyM(c.attachment)}–${fmtMoneyM(c.exhaustion)})` }));
+    grid.appendChild(interpSelectField("Lower anchor layer", anchorA.id, anchorOptions, v => { interpForm.lowerId = v; interpForm.anchorsAuto = false; recalcAndRender(false, true); }));
+    grid.appendChild(interpSelectField("Upper anchor layer", anchorB.id, anchorOptions, v => { interpForm.upperId = v; interpForm.anchorsAuto = false; recalcAndRender(false, true); }));
+
+    formDiv.appendChild(grid);
+
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex; gap:8px;";
+    const resetBtn = document.createElement("button");
+    resetBtn.className = "small";
+    resetBtn.textContent = "Auto-select anchors";
+    resetBtn.addEventListener("click", () => { interpForm.anchorsAuto = true; recalcAndRender(false); });
+    actions.appendChild(resetBtn);
+    formDiv.appendChild(actions);
+  }
+
+  function updateInterpolationResult(tower) {
+    const resultDiv = document.getElementById("interp-result");
+    resultDiv.innerHTML = "";
+    const candidates = interpCandidates(tower);
+    if (candidates.length < 2) return;
+
+    const { mathLower, mathUpper } = resolveInterpAnchors(candidates);
+    const targetAttachment = Number(interpForm.attachment || 0);
+    const targetLimit = Number(interpForm.limit || 0);
+    const result = computeInterpolation(mathLower, mathUpper, targetAttachment, targetLimit, interpForm.method);
+
+    const box = document.createElement("div");
+    box.className = "interp-result";
+
+    function stat(label, value) {
+      const d = document.createElement("div");
+      d.className = "stat";
+      const l = document.createElement("div");
+      l.className = "label"; l.textContent = label;
+      const v = document.createElement("div");
+      v.className = "value"; v.textContent = value;
+      d.appendChild(l); d.appendChild(v);
+      return d;
+    }
+
+    if (!result) {
+      const note = document.createElement("div");
+      note.className = "interp-note";
+      note.textContent = "Can't interpolate — check that the two anchor layers have distinct positions in the tower and a positive rate on line.";
+      box.appendChild(note);
+      resultDiv.appendChild(box);
+      return;
+    }
+
+    const premium = result.rol * targetLimit;
+    box.appendChild(stat("Interpolated New RA Flat ROL", fmtPctFraction(result.rol)));
+    box.appendChild(stat("Interpolated New RA Flat premium", fmtMoneyM(premium)));
+    box.appendChild(stat("Anchors used", `${mathLower.label} (${fmtPctFraction(mathLower.newRAFlatROL)}) → ${mathUpper.label} (${fmtPctFraction(mathUpper.newRAFlatROL)})`));
+
+    if (result.extrapolated) {
+      const note = document.createElement("div");
+      note.className = "interp-note warn";
+      note.textContent = "⚠ This layer's position falls outside your two anchor layers — this is an extrapolation, not an interpolation. Treat with extra caution.";
+      box.appendChild(note);
+    } else if (result.usedMethod !== interpForm.method) {
+      const note = document.createElement("div");
+      note.className = "interp-note";
+      note.textContent = "Fell back to linear interpolation because one anchor layer has a zero rate on line.";
+      box.appendChild(note);
+    }
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "primary small";
+    addBtn.textContent = "+ Add to tower";
+    addBtn.style.marginTop = "4px";
+    addBtn.addEventListener("click", () => {
+      state.layers.push({
+        id: uid(), label: interpForm.label || "Interpolated Layer",
+        attachment: targetAttachment, limit: targetLimit,
+        interpolated: true, interpolatedROL: result.rol,
+        expiringROL: null, expiringMSD: null, newEL: null, newVolatility: null
+      });
+      interpForm = { label: "Interpolated Layer", attachment: null, limit: null, method: interpForm.method, lowerId: null, upperId: null, anchorsAuto: true };
+      recalcAndRender(true);
+    });
+    box.appendChild(addBtn);
+
+    resultDiv.appendChild(box);
+  }
+
   // ---------- orchestration ----------
-  function recalcAndRender(structural) {
+  function recalcAndRender(structural, skipInterpForm) {
     saveState();
     const tower = computeTower();
     renderWarnings();
@@ -662,6 +957,8 @@
     renderResults(tower);
     renderROLChart(tower);
     if (structural) renderLayerEditor();
+    if (!skipInterpForm) renderInterpolationForm(tower);
+    updateInterpolationResult(tower);
   }
 
   function fullRender() {
