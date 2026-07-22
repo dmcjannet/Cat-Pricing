@@ -1,6 +1,6 @@
 # Cat XL Tower Pricer
 
-A lightweight, single-file browser app for repricing catastrophe excess-of-loss (Cat XL) reinsurance towers at renewal, using the risk-adjusted flat ("RA Flat") methodology: hold last year's margin on standard deviation (MSD) constant and reprice to this year's expected loss and volatility.
+A lightweight, single-file browser app for repricing catastrophe excess-of-loss (Cat XL) reinsurance towers at renewal, using the risk-adjusted flat ("RA Flat") methodology: hold last year's margin on standard deviation (MSD) constant and reprice to this year's expected loss and standard deviation.
 
 No install, no backend, no build step. Open `index.html` in any modern browser — everything runs client-side in JavaScript and nothing leaves your machine.
 
@@ -12,7 +12,7 @@ No install, no backend, no build step. Open `index.html` in any modern browser �
    - **Attachment** and **Limit** ($M) — defines the layer
    - **Expiring ROL (%)** — last year's rate on line, for reference and the rate-change comparison
    - **Expiring MSD** — last year's margin on standard deviation
-   - **New expected loss ($M)** and **New volatility ($M)** — this year's modeled figures
+   - **New expected loss ($M)** and **New standard deviation ($M)** — this year's modeled figures
 4. The **New RA Flat premium**, **New RA Flat ROL**, and **rate change** columns calculate automatically.
 5. Use **Export JSON** / **Import JSON** to save a tower to a file or share it with a colleague. The app also autosaves to your browser's local storage.
 
@@ -20,18 +20,18 @@ No install, no backend, no build step. Open `index.html` in any modern browser �
 
 ```
 Expiring Premium    = Expiring ROL × Limit
-New RA Flat Premium = New Expected Loss + (Expiring MSD × New Volatility)
+New RA Flat Premium = New Expected Loss + (Expiring MSD × New Standard Deviation)
 New RA Flat ROL     = New RA Flat Premium / Limit
-Rate Change          = New RA Flat ROL / Expiring ROL − 1
+Rate Change         = New RA Flat ROL / Expiring ROL − 1
 ```
 
-**Margin on Standard Deviation (MSD)** is the risk margin per unit of loss volatility (standard deviation) implied by, or agreed for, the expiring placement — conceptually `(Expiring Premium − Expiring Expected Loss) / Expiring Volatility`. You enter it directly per layer, sourced from the prior year's pricing file, a market benchmark, or your own calculation.
+**Margin on Standard Deviation (MSD)** is the risk margin per unit of loss standard deviation implied by, or agreed for, the expiring placement — conceptually `(Expiring Premium − Expiring Expected Loss) / Expiring Standard Deviation`. You enter it directly per layer, sourced from the prior year's pricing file, a market benchmark, or your own calculation.
 
-Holding MSD flat year-over-year is what makes this a **risk-adjusted flat** reprice: any resulting change in rate on line is driven purely by the change in modeled expected loss and volatility between the expiring and current model views — not by a change in risk appetite. A rate increase is shown in red, a decrease in green, in both the results table and the ROL comparison chart.
+Holding MSD flat year-over-year is what makes this a **risk-adjusted flat** reprice: any resulting change in rate on line is driven purely by the change in modeled expected loss and standard deviation between the expiring and current model views — not by a change in risk appetite. A rate increase is shown in red, a decrease in green, in both the results table and the ROL comparison chart.
 
 ## Inputs
 
-All monetary layer inputs (attachment, limit, new expected loss, new volatility) are in **$ millions**, matching how towers are typically quoted in the market (e.g. "$10M xs $10M"). New expected loss and volatility should come from this year's catastrophe model output for each layer. Expiring ROL and expiring MSD come from the expiring placement.
+All monetary layer inputs (attachment, limit, new expected loss, new standard deviation) are in **$ millions**, matching how towers are typically quoted in the market (e.g. "$10M xs $10M"). New expected loss and standard deviation should come from this year's catastrophe model output for each layer. Expiring ROL and expiring MSD come from the expiring placement.
 
 ## What this is not
 

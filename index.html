@@ -191,7 +191,7 @@
   <div class="topbar">
     <div>
       <h1>Cat XL Tower Pricer</h1>
-      <p class="subtitle">Risk-adjusted flat (RA Flat) renewal pricing &mdash; hold last year's margin on standard deviation and reprice to this year's expected loss and volatility. Layer $ inputs are in $ millions.</p>
+      <p class="subtitle">Risk-adjusted flat (RA Flat) renewal pricing &mdash; hold last year's margin on standard deviation and reprice to this year's expected loss and standard deviation. Layer $ inputs are in $ millions.</p>
     </div>
     <div class="toolbar">
       <button id="btn-example" class="small">Load example tower</button>
@@ -222,7 +222,7 @@
             <th>Expiring ROL (%)</th>
             <th>Expiring MSD</th>
             <th>New expected loss ($M)</th>
-            <th>New volatility ($M)</th>
+            <th>New standard deviation ($M)</th>
             <th class="col-actions"></th>
           </tr>
         </thead>
@@ -269,11 +269,11 @@
       <summary>Methodology &amp; formulas</summary>
       <ul>
         <li><code>Expiring Premium = Expiring ROL &times; Limit</code></li>
-        <li><code>New RA Flat Premium = New Expected Loss + (Expiring MSD &times; New Volatility)</code> &mdash; the expiring margin on standard deviation (MSD) is held constant and applied to this year's expected loss and volatility (standard deviation) to derive a risk-adjusted flat technical price.</li>
+        <li><code>New RA Flat Premium = New Expected Loss + (Expiring MSD &times; New Standard Deviation)</code> &mdash; the expiring margin on standard deviation (MSD) is held constant and applied to this year's expected loss and standard deviation to derive a risk-adjusted flat technical price.</li>
         <li><code>New RA Flat ROL = New RA Flat Premium / Limit</code></li>
         <li><code>Rate Change = New RA Flat ROL / Expiring ROL &minus; 1</code></li>
       </ul>
-      <p><strong>Margin on Standard Deviation (MSD)</strong> is the risk margin per unit of loss volatility implied by (or agreed for) the expiring placement: <code>(Expiring Premium &minus; Expiring Expected Loss) / Expiring Volatility</code>. Enter it directly per layer &mdash; from the prior year's pricing file, a market benchmark, or your own calculation. Holding MSD flat year-over-year is what makes this a "risk-adjusted flat" reprice: any change in the resulting rate on line is driven purely by the change in modeled expected loss and volatility, not by a change in risk appetite.</p>
+      <p><strong>Margin on Standard Deviation (MSD)</strong> is the risk margin per unit of loss standard deviation implied by (or agreed for) the expiring placement: <code>(Expiring Premium &minus; Expiring Expected Loss) / Expiring Standard Deviation</code>. Enter it directly per layer &mdash; from the prior year's pricing file, a market benchmark, or your own calculation. Holding MSD flat year-over-year is what makes this a "risk-adjusted flat" reprice: any change in the resulting rate on line is driven purely by the change in modeled expected loss and standard deviation, not by a change in risk appetite.</p>
     </details>
   </div>
 
